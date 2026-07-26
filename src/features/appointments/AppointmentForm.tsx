@@ -20,6 +20,7 @@ import { TimeSlotPicker } from './TimeSlotPicker'
 import { usePatients, useCreatePatient } from '@/features/patients/api'
 import { useDoctors } from '@/features/doctors/api'
 import { useBranchContext } from '@/features/branches/BranchContext'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { toast } from '@/hooks/use-toast'
 import type { Patient } from '@/types/database'
 
@@ -55,8 +56,9 @@ export function AppointmentForm({
   const [patientMode, setPatientMode] = React.useState<'existing' | 'new'>('existing')
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | undefined>(presetPatient)
   const [patientSearch, setPatientSearch] = React.useState('')
+  const debouncedPatientSearch = useDebouncedValue(patientSearch)
   const { data: doctors } = useDoctors()
-  const { data: patientResults } = usePatients(patientSearch)
+  const { data: patientResults } = usePatients(debouncedPatientSearch)
   const { currentBranchId, currentBranch } = useBranchContext()
   const createAppointment = useCreateAppointment()
   const createPatient = useCreatePatient()

@@ -7,12 +7,14 @@ import { Card } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from '@/components/ui/table'
 import { usePatients } from '@/features/patients/api'
 import { PatientForm } from '@/features/patients/PatientForm'
+import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatDate } from '@/lib/utils'
 
 export default function PatientsPage() {
   const [search, setSearch] = React.useState('')
+  const debouncedSearch = useDebouncedValue(search)
   const [formOpen, setFormOpen] = React.useState(false)
-  const { data: patients, isLoading } = usePatients(search)
+  const { data: patients, isLoading } = usePatients(debouncedSearch)
   const navigate = useNavigate()
 
   return (

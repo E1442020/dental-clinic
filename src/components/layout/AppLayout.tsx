@@ -18,8 +18,10 @@ export function AppLayout() {
         <MobileSidebar open={mobileNavOpen} onOpenChange={setMobileNavOpen} />
         <div className="flex min-w-0 flex-1 flex-col">
           <Topbar onMenuClick={() => setMobileNavOpen(true)} title={title} />
-          <main className="flex-1 overflow-y-auto p-4 md:p-6">
-            <Outlet />
+          <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
+            <React.Suspense fallback={<p className="text-center text-muted-foreground">جارٍ التحميل...</p>}>
+              <Outlet />
+            </React.Suspense>
           </main>
         </div>
       </div>

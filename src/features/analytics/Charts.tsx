@@ -34,6 +34,8 @@ function colorForProcedure(name: string) {
 }
 
 const axisTickStyle = { fontSize: 11, fill: AXIS_TEXT }
+const nameTickStyle = { fontSize: 12, fill: 'hsl(222 47% 20%)', fontWeight: 600 }
+const stripDoctorTitle = (name: string) => name.replace(/^د\.\s*/, '')
 
 function EmptyState() {
   return <p className="flex h-56 items-center justify-center text-sm text-muted-foreground">لا توجد بيانات كافية في هذه الفترة</p>
@@ -158,20 +160,22 @@ export function DoctorPerformanceChart({ data }: { data: { name: string; revenue
         {sorted.length === 0 ? (
           <EmptyState />
         ) : (
-          <ResponsiveContainer width="100%" height={224}>
+          <ResponsiveContainer width="100%" height={Math.max(224, sorted.length * 40)}>
             <BarChart data={sorted} layout="vertical" margin={{ top: 8, right: 24, left: 0, bottom: 0 }}>
               <CartesianGrid horizontal={false} stroke={GRID} />
               <XAxis type="number" tick={axisTickStyle} axisLine={false} tickLine={false} />
               <YAxis
                 type="category"
                 dataKey="name"
-                tick={axisTickStyle}
+                tickFormatter={stripDoctorTitle}
+                tick={nameTickStyle}
                 axisLine={false}
                 tickLine={false}
-                width={80}
+                width={110}
+                interval={0}
               />
               <Tooltip content={<CurrencyTooltip />} cursor={{ fill: 'hsl(186 72% 96%)' }} />
-              <Bar dataKey="revenue" fill={TEAL} radius={[0, 4, 4, 0]} barSize={20} />
+              <Bar dataKey="revenue" fill={TEAL} radius={[0, 4, 4, 0]} barSize={22} />
             </BarChart>
           </ResponsiveContainer>
         )}

@@ -44,13 +44,13 @@ export default function PatientProfilePage() {
 
       <Card>
         <CardContent className="flex flex-col gap-4 pt-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex size-14 items-center justify-center rounded-full bg-primary text-xl font-bold text-primary-foreground">
+          <div className="flex items-start gap-3 sm:gap-4">
+            <div className="flex size-11 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-foreground sm:size-14 sm:text-xl">
               {patient.full_name[0]}
             </div>
-            <div>
-              <h2 className="text-lg font-bold">{patient.full_name}</h2>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+            <div className="min-w-0">
+              <h2 className="truncate text-base font-bold sm:text-lg">{patient.full_name}</h2>
+              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground sm:text-sm">
                 <span className="inline-flex items-center gap-1.5" dir="ltr">
                   <Phone className="size-3.5" />
                   {patient.phone}
@@ -76,7 +76,7 @@ export default function PatientProfilePage() {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
+          <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => setEditOpen(true)}>
             <Pencil className="size-4" />
             تعديل البيانات
           </Button>

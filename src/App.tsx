@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { DirectionProvider } from '@radix-ui/react-direction'
@@ -6,17 +7,30 @@ import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Toaster } from '@/components/ui/toaster'
 import LoginPage from '@/pages/LoginPage'
-import DashboardPage from '@/pages/DashboardPage'
-import PatientsPage from '@/pages/PatientsPage'
-import PatientProfilePage from '@/pages/PatientProfilePage'
-import AppointmentsPage from '@/pages/AppointmentsPage'
-import DoctorsPage from '@/pages/DoctorsPage'
-import BranchesPage from '@/pages/BranchesPage'
-import InsurancePage from '@/pages/InsurancePage'
-import BillingPage from '@/pages/BillingPage'
-import NotFoundPage from '@/pages/NotFoundPage'
 
-const queryClient = new QueryClient()
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
+const PatientsPage = lazy(() => import('@/pages/PatientsPage'))
+const PatientProfilePage = lazy(() => import('@/pages/PatientProfilePage'))
+const AppointmentsPage = lazy(() => import('@/pages/AppointmentsPage'))
+const DoctorsPage = lazy(() => import('@/pages/DoctorsPage'))
+const BranchesPage = lazy(() => import('@/pages/BranchesPage'))
+const InsurancePage = lazy(() => import('@/pages/InsurancePage'))
+const BillingPage = lazy(() => import('@/pages/BillingPage'))
+const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
+const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
+    },
+  },
+})
+
+function PageFallback() {
+  return <p className="p-8 text-center text-muted-foreground">جارٍ التحميل...</p>
+}
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -32,6 +46,7 @@ const router = createBrowserRouter([
       { path: 'patients', element: <PatientsPage />, handle: { title: 'المرضى' } },
       { path: 'patients/:id', element: <PatientProfilePage />, handle: { title: 'ملف المريض' } },
       { path: 'appointments', element: <AppointmentsPage />, handle: { title: 'المواعيد' } },
+      { path: 'profile', element: <ProfilePage />, handle: { title: 'الملف الشخصي' } },
       {
         path: 'doctors',
         element: (
@@ -70,7 +85,14 @@ const router = createBrowserRouter([
       },
     ],
   },
-  { path: '*', element: <NotFoundPage /> },
+  {
+    path: '*',
+    element: (
+      <Suspense fallback={<PageFallback />}>
+        <NotFoundPage />
+      </Suspense>
+    ),
+  },
 ])
 
 export default function App() {

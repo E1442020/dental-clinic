@@ -1,4 +1,5 @@
 import { LogOut, Menu, User as UserIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { roleLabels } from '@/lib/roles'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -15,6 +16,7 @@ import { BranchSwitcher } from './BranchSwitcher'
 
 export function Topbar({ onMenuClick, title }: { onMenuClick: () => void; title: string }) {
   const { profile, signOut } = useAuth()
+  const navigate = useNavigate()
   const initials = profile?.full_name?.trim()?.[0] ?? '؟'
 
   return (
@@ -46,7 +48,7 @@ export function Topbar({ onMenuClick, title }: { onMenuClick: () => void; title:
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>حسابي</DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
               <UserIcon className="size-4" />
               الملف الشخصي
             </DropdownMenuItem>

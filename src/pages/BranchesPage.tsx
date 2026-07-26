@@ -1,12 +1,15 @@
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, MapPin, Phone } from 'lucide-react'
+import { Plus, MapPin, Phone, CheckCircle2, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { useBranches, useCreateBranch } from '@/features/branches/api'
+import { useCreateBranch } from '@/features/branches/api'
+import { useBranchContext } from '@/features/branches/BranchContext'
+import { cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 
 interface FormValues {
@@ -16,7 +19,7 @@ interface FormValues {
 }
 
 export default function BranchesPage() {
-  const { data: branches, isLoading } = useBranches()
+  const { branches, isLoading, currentBranchId, setCurrentBranchId, isLocked } = useBranchContext()
   const createBranch = useCreateBranch()
   const [open, setOpen] = React.useState(false)
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<FormValues>()
@@ -34,7 +37,12 @@ export default function BranchesPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {isLocked
+            ? 'فرعك محدد من مسؤول العيادة ولا يمكن تغييره من هنا'
+            : 'دوس "تعيين كفرع العمل" عشان تحدد الفرع اللي هتشتغل عليه دلوقتي — هيستخدم في كل حجز وعلاج وفاتورة تسجّلها'}
+        </p>
         <Button onClick={() => setOpen(true)}>
           <Plus className="size-4" />
           إضافة فرع
@@ -45,25 +53,42 @@ export default function BranchesPage() {
         <p className="text-center text-muted-foreground">جارٍ التحميل...</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {branches?.map((b) => (
-            <Card key={b.id}>
-              <CardContent className="flex flex-col gap-2 pt-5">
-                <p className="font-bold">{b.name}</p>
-                {b.address && (
-                  <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <MapPin className="size-3.5" />
-                    {b.address}
-                  </p>
-                )}
-                {b.phone && (
-                  <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
-                    <Phone className="size-3.5" />
-                    <span dir="ltr">{b.phone}</span>
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          {branches?.map((b) => {
+            const isCurrent = b.id === currentBranchId
+            return (
+              <Card key={b.id} className={cn(isCurrent && 'ring-2 ring-primary')}>
+                <CardContent className="flex flex-col gap-2 pt-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-bold">{b.name}</p>
+                    {isCurrent && (
+                      <Badge variant="success">
+                        <CheckCircle2 className="size-3.5" />
+                        الفرع الحالي
+                      </Badge>
+                    )}
+                  </div>
+                  {b.address && (
+                    <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <MapPin className="size-3.5" />
+                      {b.address}
+                    </p>
+                  )}
+                  {b.phone && (
+                    <p className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                      <Phone className="size-3.5" />
+                      <span dir="ltr">{b.phone}</span>
+                    </p>
+                  )}
+                  {!isLocked && !isCurrent && (
+                    <Button size="sm" variant="outline" className="mt-1" onClick={() => setCurrentBranchId(b.id)}>
+                      <Building2 className="size-3.5" />
+                      تعيين كفرع العمل
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
           {branches?.length === 0 && <p className="text-muted-foreground">لا توجد فروع بعد</p>}
         </div>
       )}
