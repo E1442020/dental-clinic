@@ -74,4 +74,12 @@
     scrollbar-width: thin;
     scrollbar-color: var(--color-muted-foreground) transparent;
   }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
 }

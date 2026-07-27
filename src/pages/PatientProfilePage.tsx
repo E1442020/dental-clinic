@@ -13,6 +13,7 @@ import { AppointmentForm } from '@/features/appointments/AppointmentForm'
 import { useTreatments } from '@/features/treatments/api'
 import { TreatmentForm } from '@/features/treatments/TreatmentForm'
 import { DentalChartView } from '@/features/dental-chart/DentalChartView'
+import { toothLabel } from '@/features/dental-chart/toothLabels'
 import { BillingPanel } from '@/features/billing/BillingPanel'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { appointmentStatusLabels } from '@/lib/roles'
@@ -71,7 +72,7 @@ export default function PatientProfilePage() {
               {insurance && (
                 <Badge variant="secondary" className="mt-2">
                   <ShieldCheck className="size-3.5" />
-                  {insurance.company_name} · تغطية {insurance.coverage_percentage}%
+                  {insurance.company_name}
                 </Badge>
               )}
             </div>
@@ -206,7 +207,7 @@ function TreatmentsList({ patientId }: { patientId: string }) {
             <div>
               <p className="font-semibold">
                 {t.procedure_type}
-                {t.tooth_number ? ` · سنة رقم ${t.tooth_number}` : ''}
+                {t.tooth_number ? ` · ${toothLabel(t.tooth_number)}` : ''}
               </p>
               <p className="text-sm text-muted-foreground">
                 {formatDate(t.procedure_date)} · {t.doctors?.full_name}

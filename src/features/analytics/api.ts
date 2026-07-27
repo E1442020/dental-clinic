@@ -57,20 +57,27 @@ export interface AnalyticsData {
   doctorPerformance: { name: string; revenue: number }[]
 }
 
-export function useAnalytics(range: RangeKey) {
+export function useAnalytics(range: RangeKey, branchId?: string) {
   return useQuery({
-    queryKey: ['analytics', range],
+    queryKey: ['analytics', range, branchId ?? 'all'],
     queryFn: async (): Promise<AnalyticsData> => {
       const { from, to } = rangeToDates(range)
 
-      const [treatmentsRes, patientsRes] = await Promise.all([
-        supabase
-          .from('treatments')
-          .select('procedure_type, cost, procedure_date, doctors(full_name)')
-          .gte('procedure_date', from)
-          .lte('procedure_date', to),
-        supabase.from('patients').select('created_at').gte('created_at', from).lte('created_at', to + 'T23:59:59'),
-      ])
+      let treatmentsQuery = supabase
+        .from('treatments')
+        .select('procedure_type, cost, procedure_date, doctors(full_name)')
+        .gte('procedure_date', from)
+        .lte('procedure_date', to)
+      if (branchId) treatmentsQuery = treatmentsQuery.eq('branch_id', branchId)
+
+      let patientsQuery = supabase
+        .from('patients')
+        .select('created_at')
+        .gte('created_at', from)
+        .lte('created_at', to + 'T23:59:59')
+      if (branchId) patientsQuery = patientsQuery.eq('primary_branch_id', branchId)
+
+      const [treatmentsRes, patientsRes] = await Promise.all([treatmentsQuery, patientsQuery])
       if (treatmentsRes.error) throw treatmentsRes.error
       if (patientsRes.error) throw patientsRes.error
 

@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { ChevronRight, ChevronLeft, Plus, Clock, Stethoscope, Building2 } from 'lucide-react'
+import { Plus, Clock, Stethoscope, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAppointmentsByDate, useUpdateAppointmentStatus } from '@/features/appointments/api'
 import { AppointmentForm } from '@/features/appointments/AppointmentForm'
+import { DateStrip } from '@/features/appointments/DateStrip'
 import { useBranchContext } from '@/features/branches/BranchContext'
 import { appointmentStatusLabels } from '@/lib/roles'
-import { formatTime, formatDate, cn } from '@/lib/utils'
+import { formatTime, cn } from '@/lib/utils'
 import type { AppointmentStatus } from '@/types/database'
 
 const statusVariant: Record<AppointmentStatus, 'default' | 'success' | 'destructive' | 'warning'> = {
@@ -27,18 +28,17 @@ function toISODate(d: Date) {
   return d.toISOString().slice(0, 10)
 }
 
+function formatFullDayLabel(date: string) {
+  return new Intl.DateTimeFormat('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(date))
+}
+
 export default function AppointmentsPage() {
   const [date, setDate] = React.useState(() => toISODate(new Date()))
   const [formOpen, setFormOpen] = React.useState(false)
   const { currentBranchId, currentBranch } = useBranchContext()
   const { data: appointments, isLoading } = useAppointmentsByDate(date, currentBranchId)
   const updateStatus = useUpdateAppointmentStatus()
-
-  function shiftDay(delta: number) {
-    const d = new Date(date)
-    d.setDate(d.getDate() + delta)
-    setDate(toISODate(d))
-  }
+  const isToday = date === toISODate(new Date())
 
   return (
     <div className="flex flex-col gap-4">
@@ -49,19 +49,20 @@ export default function AppointmentsPage() {
         </div>
       )}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" onClick={() => shiftDay(-1)}>
-            <ChevronRight className="size-4" />
-          </Button>
-          <div className="min-w-40 text-center">
-            <p className="font-semibold">{formatDate(date)}</p>
-            <button className="text-xs text-primary hover:underline" onClick={() => setDate(toISODate(new Date()))}>
-              اليوم
-            </button>
-          </div>
-          <Button variant="outline" size="icon" onClick={() => shiftDay(1)}>
-            <ChevronLeft className="size-4" />
-          </Button>
+        <div className="flex flex-col gap-2">
+          <p className="font-semibold">
+            {isToday ? 'اليوم ' : ''}
+            {formatFullDayLabel(date)}
+            {!isToday && (
+              <button
+                className="ms-2 text-xs font-normal text-primary hover:underline"
+                onClick={() => setDate(toISODate(new Date()))}
+              >
+                الرجوع لليوم
+              </button>
+            )}
+          </p>
+          <DateStrip date={date} onChange={setDate} />
         </div>
         <Button onClick={() => setFormOpen(true)}>
           <Plus className="size-4" />

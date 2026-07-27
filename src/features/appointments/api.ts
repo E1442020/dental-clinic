@@ -1,6 +1,42 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
-import type { Appointment, AppointmentStatus } from '@/types/database'
+import type { Appointment, AppointmentStatus, Doctor } from '@/types/database'
+
+export interface DoctorForBranch extends Doctor {
+  working_days: string[]
+  working_hours_start: string | null
+  working_hours_end: string | null
+}
+
+/** Doctors assigned to `branchId`, each carrying their schedule for that specific branch. */
+export function useDoctorsForBranch(branchId: string | undefined) {
+  return useQuery({
+    queryKey: ['doctors-for-branch', branchId],
+    enabled: !!branchId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('doctor_branches')
+        .select('working_days, working_hours_start, working_hours_end, doctors!inner(*)')
+        .eq('branch_id', branchId as string)
+        .eq('doctors.is_active', true)
+      if (error) throw error
+      const rows = data as unknown as {
+        working_days: string[]
+        working_hours_start: string | null
+        working_hours_end: string | null
+        doctors: Doctor
+      }[]
+      return rows
+        .map((row) => ({
+          ...row.doctors,
+          working_days: row.working_days,
+          working_hours_start: row.working_hours_start,
+          working_hours_end: row.working_hours_end,
+        }))
+        .sort((a, b) => a.full_name.localeCompare(b.full_name)) as DoctorForBranch[]
+    },
+  })
+}
 
 export interface AppointmentWithRelations extends Appointment {
   patients: { full_name: string; phone: string } | null

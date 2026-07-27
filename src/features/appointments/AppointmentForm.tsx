@@ -15,10 +15,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useCreateAppointment } from './api'
+import { useCreateAppointment, useDoctorsForBranch } from './api'
 import { TimeSlotPicker } from './TimeSlotPicker'
 import { usePatients, useCreatePatient } from '@/features/patients/api'
-import { useDoctors } from '@/features/doctors/api'
 import { useBranchContext } from '@/features/branches/BranchContext'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { toast } from '@/hooks/use-toast'
@@ -57,9 +56,9 @@ export function AppointmentForm({
   const [selectedPatient, setSelectedPatient] = React.useState<Patient | undefined>(presetPatient)
   const [patientSearch, setPatientSearch] = React.useState('')
   const debouncedPatientSearch = useDebouncedValue(patientSearch)
-  const { data: doctors } = useDoctors()
-  const { data: patientResults } = usePatients(debouncedPatientSearch)
   const { currentBranchId, currentBranch } = useBranchContext()
+  const { data: doctors } = useDoctorsForBranch(currentBranchId)
+  const { data: patientResults } = usePatients(debouncedPatientSearch)
   const createAppointment = useCreateAppointment()
   const createPatient = useCreatePatient()
 

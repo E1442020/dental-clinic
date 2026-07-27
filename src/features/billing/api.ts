@@ -11,9 +11,9 @@ export interface InvoiceWithPatient extends InvoiceWithPayments {
   patients: { full_name: string; phone: string } | null
 }
 
-export function useAllInvoices(status?: InvoiceStatus, from?: string, to?: string) {
+export function useAllInvoices(status?: InvoiceStatus, from?: string, to?: string, branchId?: string) {
   return useQuery({
-    queryKey: ['invoices', 'all', status ?? 'any', from ?? '-', to ?? '-'],
+    queryKey: ['invoices', 'all', status ?? 'any', from ?? '-', to ?? '-', branchId ?? 'all'],
     queryFn: async () => {
       let query = supabase
         .from('invoices')
@@ -25,6 +25,7 @@ export function useAllInvoices(status?: InvoiceStatus, from?: string, to?: strin
       if (status) query = query.eq('status', status)
       if (from) query = query.gte('issue_date', from)
       if (to) query = query.lte('issue_date', to)
+      if (branchId) query = query.eq('branch_id', branchId)
       const { data, error } = await query
       if (error) throw error
       return data as unknown as InvoiceWithPatient[]
@@ -77,7 +78,7 @@ export function useCreateInvoice() {
 /** `dueAmount` must be the patient's own share (patient_due_amount), not the gross total_amount —
  * otherwise an invoice covered partly by insurance can never reach "paid" even once the patient
  * has paid everything they actually owe. */
-function nextInvoiceStatus(totalPaid: number, dueAmount: number): InvoiceStatus {
+export function nextInvoiceStatus(totalPaid: number, dueAmount: number): InvoiceStatus {
   if (totalPaid <= 0) return 'unpaid'
   if (totalPaid >= dueAmount) return 'paid'
   return 'partial'
@@ -90,25 +91,40 @@ export function useAddPayment() {
       invoice,
       amount,
       method,
+      insuranceCoveredAmount,
     }: {
       invoice: InvoiceWithPayments
       amount: number
       method: PaymentMethod
+      /** Manually entered by the accountant once the insurer confirms what it'll pay — overrides the invoice's current coverage. */
+      insuranceCoveredAmount?: number
     }) => {
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({ invoice_id: invoice.id, amount_paid: amount, payment_method: method })
-      if (paymentError) throw paymentError
+      if (amount > 0) {
+        const { error: paymentError } = await supabase
+          .from('payments')
+          .insert({ invoice_id: invoice.id, amount_paid: amount, payment_method: method })
+        if (paymentError) throw paymentError
+      }
 
+      const newInsuranceCovered = insuranceCoveredAmount ?? Number(invoice.insurance_covered_amount)
+      const newPatientDue = Number(invoice.total_amount) - newInsuranceCovered
       const totalPaid = invoice.payments.reduce((sum, p) => sum + Number(p.amount_paid), 0) + amount
+
       const { error: invoiceError } = await supabase
         .from('invoices')
-        .update({ status: nextInvoiceStatus(totalPaid, Number(invoice.patient_due_amount)) })
+        .update({
+          insurance_covered_amount: newInsuranceCovered,
+          patient_due_amount: newPatientDue,
+          status: nextInvoiceStatus(totalPaid, newPatientDue),
+        })
         .eq('id', invoice.id)
       if (invoiceError) throw invoiceError
 
       return invoice.patient_id
     },
-    onSuccess: (patientId) => queryClient.invalidateQueries({ queryKey: ['invoices', 'by-patient', patientId] }),
+    onSuccess: (patientId) => {
+      queryClient.invalidateQueries({ queryKey: ['invoices', 'by-patient', patientId] })
+      queryClient.invalidateQueries({ queryKey: ['invoices', 'all'] })
+    },
   })
 }

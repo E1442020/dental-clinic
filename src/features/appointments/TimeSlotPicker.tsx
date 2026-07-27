@@ -1,7 +1,6 @@
-import { useDoctorAppointmentsOnDate } from './api'
+import { useDoctorAppointmentsOnDate, type DoctorForBranch } from './api'
 import { weekdayCodeForDate, weekdays } from '@/lib/weekdays'
 import { formatTime, cn } from '@/lib/utils'
-import type { Doctor } from '@/types/database'
 
 const SLOT_MINUTES = 30
 
@@ -22,7 +21,7 @@ export function TimeSlotPicker({
   value,
   onSelect,
 }: {
-  doctor: Doctor
+  doctor: DoctorForBranch
   date: string
   value?: { start_time: string; end_time: string }
   onSelect: (slot: { start_time: string; end_time: string }) => void

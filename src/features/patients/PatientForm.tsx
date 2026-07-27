@@ -164,7 +164,7 @@ export function PatientForm({
               <SelectContent>
                 {insurances?.map((ins) => (
                   <SelectItem key={ins.id} value={ins.id}>
-                    {ins.company_name} ({ins.coverage_percentage}%)
+                    {ins.company_name}
                   </SelectItem>
                 ))}
               </SelectContent>

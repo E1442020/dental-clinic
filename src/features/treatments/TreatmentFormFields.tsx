@@ -6,10 +6,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreateTreatment, commonProcedures } from './api'
-import { useDoctors } from '@/features/doctors/api'
+import { useDoctorsForBranch } from '@/features/appointments/api'
 import { useBranchContext } from '@/features/branches/BranchContext'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { toast } from '@/hooks/use-toast'
+import { toothOptions } from '@/features/dental-chart/toothLabels'
 
 const schema = z.object({
   doctor_id: z.string().min(1, 'اختر الدكتور'),
@@ -33,8 +34,8 @@ export function TreatmentFormFields({
   onSaved: () => void
   onCancel?: () => void
 }) {
-  const { data: doctors } = useDoctors()
   const { currentBranchId } = useBranchContext()
+  const { data: doctors } = useDoctorsForBranch(currentBranchId)
   const { profile } = useAuth()
   const createTreatment = useCreateTreatment()
 
@@ -97,8 +98,19 @@ export function TreatmentFormFields({
           {errors.doctor_id && <p className="mt-1 text-xs text-destructive">{errors.doctor_id.message}</p>}
         </div>
         <div>
-          <Label htmlFor="tooth_number">رقم السنة (اختياري)</Label>
-          <Input id="tooth_number" type="number" min={1} max={32} {...register('tooth_number')} />
+          <Label>السنة (اختياري)</Label>
+          <Select value={watch('tooth_number')} onValueChange={(v) => setValue('tooth_number', v)}>
+            <SelectTrigger>
+              <SelectValue placeholder="بدون" />
+            </SelectTrigger>
+            <SelectContent>
+              {toothOptions.map((t) => (
+                <SelectItem key={t.value} value={String(t.value)}>
+                  {t.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

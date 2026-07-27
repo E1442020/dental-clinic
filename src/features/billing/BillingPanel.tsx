@@ -1,22 +1,25 @@
 import * as React from 'react'
-import { Plus, Wallet } from 'lucide-react'
+import { Plus, Wallet, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useInvoicesByPatient, useAddPayment, type InvoiceWithPayments } from './api'
+import { useClaimByInvoice, useSubmitClaim } from '@/features/insurance/claims-api'
 import { InvoiceForm } from './InvoiceForm'
 import { BillingSummary } from './BillingSummary'
 import { usePatient } from '@/features/patients/api'
-import { useInsurances } from '@/features/insurance/api'
-import { invoiceStatusLabels, paymentMethodLabels } from '@/lib/roles'
+import { toothLabel } from '@/features/dental-chart/toothLabels'
+import { invoiceStatusLabels, paymentMethodLabels, claimStatusLabels } from '@/lib/roles'
 import { formatCurrency, formatDate, cn } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import type { PaymentMethod } from '@/types/database'
 
 const statusVariant = { unpaid: 'destructive', partial: 'warning', paid: 'success' } as const
+const claimStatusVariant = { pending: 'warning', approved: 'success', rejected: 'destructive' } as const
 
 function PaymentDialog({
   invoice,
@@ -28,18 +31,27 @@ function PaymentDialog({
   const addPayment = useAddPayment()
   const [amount, setAmount] = React.useState('')
   const [method, setMethod] = React.useState<PaymentMethod>('cash')
+  const [insuranceCovered, setInsuranceCovered] = React.useState(String(invoice.insurance_covered_amount))
 
   const paid = invoice.payments.reduce((s, p) => s + Number(p.amount_paid), 0)
-  const remaining = Number(invoice.patient_due_amount) - paid
+  const insuranceCoveredValue = Number(insuranceCovered || 0)
+  const previewDue = Number(invoice.total_amount) - insuranceCoveredValue
+  const remaining = previewDue - paid
 
   async function handleSave() {
-    const value = Number(amount)
-    if (!value || value <= 0) {
-      toast({ title: 'أدخل مبلغًا صحيحًا', variant: 'destructive' })
+    const value = Number(amount || 0)
+    const insuranceChanged = insuranceCoveredValue !== Number(invoice.insurance_covered_amount)
+    if (value <= 0 && !insuranceChanged) {
+      toast({ title: 'أدخل مبلغًا صحيحًا أو عدّلي قيمة تغطية التأمين', variant: 'destructive' })
       return
     }
     try {
-      await addPayment.mutateAsync({ invoice, amount: value, method })
+      await addPayment.mutateAsync({
+        invoice,
+        amount: value,
+        method,
+        insuranceCoveredAmount: insuranceChanged ? insuranceCoveredValue : undefined,
+      })
       toast({ title: 'تم تسجيل الدفعة', variant: 'success' })
       onOpenChange(false)
     } catch (err) {
@@ -54,18 +66,21 @@ function PaymentDialog({
           <DialogTitle>تسجيل دفعة</DialogTitle>
         </DialogHeader>
         <div className="rounded-lg bg-accent px-3 py-2.5 text-center">
-          <p className="text-xs text-muted-foreground">المبلغ المتبقي</p>
+          <p className="text-xs text-muted-foreground">المبلغ المتبقي على المريض</p>
           <p className="text-xl font-bold text-primary">{formatCurrency(remaining)}</p>
         </div>
         <div className="flex flex-col gap-4">
-          <Input
-            type="number"
-            min={0}
-            step="0.01"
-            placeholder="المبلغ"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
+          <div>
+            <Label>المبلغ المدفوع من المريض</Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              placeholder="المبلغ"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+          </div>
           <Select value={method} onValueChange={(v) => setMethod(v as PaymentMethod)}>
             <SelectTrigger>
               <SelectValue />
@@ -78,6 +93,19 @@ function PaymentDialog({
               ))}
             </SelectContent>
           </Select>
+          <div>
+            <Label>تغطية التأمين على الفاتورة دي</Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={insuranceCovered}
+              onChange={(e) => setInsuranceCovered(e.target.value)}
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              اكتبي هنا الرقم اللي شركة التأمين وافقت تحاسب عليه — هيتحدث في الفاتورة والحسابات فورًا
+            </p>
+          </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -92,59 +120,103 @@ function PaymentDialog({
   )
 }
 
-function InsuranceLimitCard({ patientId, invoices }: { patientId: string; invoices: InvoiceWithPayments[] }) {
-  const { data: patient } = usePatient(patientId)
-  const { data: insurances } = useInsurances()
-  const insurance = insurances?.find((i) => i.id === patient?.insurance_id)
+function ClaimAction({
+  invoice,
+  patientId,
+  insuranceId,
+}: {
+  invoice: InvoiceWithPayments
+  patientId: string
+  insuranceId: string
+}) {
+  const { data: claim, isLoading } = useClaimByInvoice(invoice.id)
+  const submitClaim = useSubmitClaim()
+  const [claimAmount, setClaimAmount] = React.useState(String(invoice.total_amount))
+  const [open, setOpen] = React.useState(false)
 
-  if (!insurance || !insurance.annual_limit) return null
+  if (isLoading) return null
 
-  const currentYear = new Date().getFullYear()
-  const usedThisYear = invoices
-    .filter((inv) => new Date(inv.issue_date).getFullYear() === currentYear)
-    .reduce((s, inv) => s + Number(inv.insurance_covered_amount), 0)
-  const limit = Number(insurance.annual_limit)
-  const remaining = Math.max(limit - usedThisYear, 0)
-  const usedPct = Math.min((usedThisYear / limit) * 100, 100)
+  if (claim) {
+    return (
+      <Badge variant={claimStatusVariant[claim.status]}>
+        مطالبة التأمين: {claimStatusLabels[claim.status]}
+      </Badge>
+    )
+  }
+
+  async function handleSubmit() {
+    const value = Number(claimAmount)
+    if (!value || value <= 0) {
+      toast({ title: 'أدخل مبلغًا صحيحًا', variant: 'destructive' })
+      return
+    }
+    try {
+      await submitClaim.mutateAsync({
+        invoice_id: invoice.id,
+        patient_id: patientId,
+        insurance_id: insuranceId,
+        claim_amount: value,
+      })
+      toast({ title: 'تم إرسال المطالبة لشركة التأمين', variant: 'success' })
+      setOpen(false)
+    } catch (err) {
+      toast({ title: 'تعذّر إرسال المطالبة', description: (err as Error).message, variant: 'destructive' })
+    }
+  }
 
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-2 pt-5">
-        <div className="flex items-center justify-between text-sm">
-          <p className="font-semibold">الحد السنوي لتأمين {insurance.company_name}</p>
-          <p className="text-muted-foreground">
-            استُخدم {formatCurrency(usedThisYear)} من {formatCurrency(limit)}
-          </p>
-        </div>
-        <div className="h-2 overflow-hidden rounded-full bg-muted">
-          <div
-            className={cn('h-full rounded-full', usedPct >= 100 ? 'bg-destructive' : 'bg-primary')}
-            style={{ width: `${usedPct}%` }}
-          />
-        </div>
-        <p className={cn('text-xs font-medium', remaining > 0 ? 'text-muted-foreground' : 'text-destructive')}>
-          {remaining > 0
-            ? `متبقي ${formatCurrency(remaining)} لهذا العام`
-            : 'تم استهلاك الحد السنوي بالكامل — أي علاج جديد على المريض بالكامل'}
-        </p>
-      </CardContent>
-    </Card>
+    <>
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        <ShieldCheck className="size-4" />
+        إرسال مطالبة للتأمين
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>إرسال مطالبة لشركة التأمين</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div>
+              <Label>المبلغ المطلوب من الشركة</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={claimAmount}
+                onChange={(e) => setClaimAmount(e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              متابعة الموافقة والتحصيل بعد كده من تاب "تحصيل التأمين" في صفحة شركات التأمين
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              إلغاء
+            </Button>
+            <Button onClick={handleSubmit} disabled={submitClaim.isPending}>
+              {submitClaim.isPending ? 'جارٍ الإرسال...' : 'إرسال'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
 export function BillingPanel({ patientId }: { patientId: string }) {
   const { data: invoices, isLoading } = useInvoicesByPatient(patientId)
+  const { data: patient } = usePatient(patientId)
   const [invoiceFormOpen, setInvoiceFormOpen] = React.useState(false)
   const [payingInvoice, setPayingInvoice] = React.useState<InvoiceWithPayments | null>(null)
 
   return (
     <div className="flex flex-col gap-4">
       {invoices && invoices.length > 0 && <BillingSummary invoices={invoices} />}
-      {invoices && <InsuranceLimitCard patientId={patientId} invoices={invoices} />}
 
       <div className="flex items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          يتم إنشاء الفاتورة تلقائيًا عند تسجيل أي علاج بتكلفة، مع خصم نسبة التأمين تلقائيًا لو المريض له تأمين
+          يتم إنشاء الفاتورة تلقائيًا عند تسجيل أي علاج بتكلفة — تغطية التأمين بتتسجل بإيدك وقت الدفع أو بعد موافقة الشركة
         </p>
         <Button size="sm" variant="outline" onClick={() => setInvoiceFormOpen(true)}>
           <Plus className="size-4" />
@@ -169,7 +241,7 @@ export function BillingPanel({ patientId }: { patientId: string }) {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {inv.treatments
-                        ? `${inv.treatments.procedure_type}${inv.treatments.tooth_number ? ` · سنة ${inv.treatments.tooth_number}` : ''} · `
+                        ? `${inv.treatments.procedure_type}${inv.treatments.tooth_number ? ` · ${toothLabel(inv.treatments.tooth_number)}` : ''} · `
                         : ''}
                       {formatDate(inv.issue_date)} · مدفوع {formatCurrency(paid)}
                     </p>
@@ -179,7 +251,10 @@ export function BillingPanel({ patientId }: { patientId: string }) {
                       </p>
                     )}
                   </div>
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    {patient?.insurance_id && (
+                      <ClaimAction invoice={inv} patientId={patientId} insuranceId={patient.insurance_id} />
+                    )}
                     <div className="text-end">
                       <p className="text-xs text-muted-foreground">المتبقي</p>
                       <p className={cn('font-bold', remaining > 0 ? 'text-destructive' : 'text-success')}>

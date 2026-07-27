@@ -56,31 +56,41 @@ begin
   -- ----------------------------------------------------------------------------
   -- Insurance companies
   -- ----------------------------------------------------------------------------
-  insert into insurances (company_name, coverage_percentage, annual_limit, contact_phone)
-  values ('تأمين مصر الصحي', 60, 5000, '19345')
+  insert into insurances (company_name, contact_phone)
+  values ('تأمين مصر الصحي', '19345')
   returning id into v_ins1;
 
-  insert into insurances (company_name, coverage_percentage, annual_limit, contact_phone)
-  values ('ميدنت للتأمين', 40, 3000, '16620')
+  insert into insurances (company_name, contact_phone)
+  values ('ميدنت للتأمين', '16620')
   returning id into v_ins2;
 
-  insert into insurances (company_name, coverage_percentage, contact_phone)
-  values ('الأهلي للرعاية الصحية', 50, '19677')
+  insert into insurances (company_name, contact_phone)
+  values ('الأهلي للرعاية الصحية', '19677')
   returning id into v_ins3;
 
   -- ----------------------------------------------------------------------------
-  -- Doctors
+  -- Doctors (schedule now lives per-branch in doctor_branches, assigned right
+  -- after — matching the same branch each doctor is used with further down)
   -- ----------------------------------------------------------------------------
   with new_doctors as (
-    insert into doctors (full_name, specialty, phone, email, working_days, working_hours_start, working_hours_end)
+    insert into doctors (full_name, specialty, phone, email)
     values
-      ('د. محمد الشريف', 'طب أسنان عام', '01011122233', 'm.elsherif@clinic.com', '["sat","sun","mon","tue","wed"]'::jsonb, '10:00', '18:00'),
-      ('د. سارة عبد الوهاب', 'تقويم الأسنان', '01099887766', 's.abdelwahab@clinic.com', '["sun","mon","tue","wed","thu"]'::jsonb, '11:00', '19:00'),
-      ('د. أحمد فتحي', 'جراحة الفم والأسنان', '01122334455', 'a.fathy@clinic.com', '["sat","mon","tue","wed"]'::jsonb, '09:00', '16:00'),
-      ('د. ياسمين كمال', 'تجميل وتركيبات الأسنان', '01234567890', 'y.kamal@clinic.com', '["sun","tue","wed","thu"]'::jsonb, '12:00', '20:00')
+      ('د. محمد الشريف', 'طب أسنان عام', '01011122233', 'm.elsherif@clinic.com'),
+      ('د. سارة عبد الوهاب', 'تقويم الأسنان', '01099887766', 's.abdelwahab@clinic.com'),
+      ('د. أحمد فتحي', 'جراحة الفم والأسنان', '01122334455', 'a.fathy@clinic.com'),
+      ('د. ياسمين كمال', 'تجميل وتركيبات الأسنان', '01234567890', 'y.kamal@clinic.com')
     returning id
   )
   select array_agg(id) into v_doctor_ids from new_doctors;
+
+  -- doctor i works only at v_branch2 when i is odd, v_branch1 when even — matches
+  -- the `v_branch := case when i % 2 = 0 then v_branch1 else v_branch2 end` used below
+  insert into doctor_branches (doctor_id, branch_id, working_days, working_hours_start, working_hours_end)
+  values
+    (v_doctor_ids[1], v_branch2, '["sat","sun","mon","tue","wed"]'::jsonb, '10:00', '18:00'),
+    (v_doctor_ids[2], v_branch1, '["sun","mon","tue","wed","thu"]'::jsonb, '11:00', '19:00'),
+    (v_doctor_ids[3], v_branch2, '["sat","mon","tue","wed"]'::jsonb, '09:00', '16:00'),
+    (v_doctor_ids[4], v_branch1, '["sun","tue","wed","thu"]'::jsonb, '12:00', '20:00');
 
   -- ----------------------------------------------------------------------------
   -- Patients (spread their created_at over the last ~2 months so the "new

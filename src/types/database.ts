@@ -48,8 +48,6 @@ type Tables = {
     Row: {
       id: string
       company_name: string
-      coverage_percentage: number
-      annual_limit: number | null
       contact_phone: string | null
       contract_details: string | null
       is_active: boolean
@@ -67,9 +65,6 @@ type Tables = {
       specialty: string | null
       phone: string | null
       email: string | null
-      working_days: string[]
-      working_hours_start: string | null
-      working_hours_end: string | null
       is_active: boolean
       created_at: string
     }
@@ -77,9 +72,15 @@ type Tables = {
     Update: Partial<Tables['doctors']['Row']>
   }
   doctor_branches: {
-    Row: { doctor_id: string; branch_id: string }
-    Insert: { doctor_id: string; branch_id: string }
-    Update: Partial<{ doctor_id: string; branch_id: string }>
+    Row: {
+      doctor_id: string
+      branch_id: string
+      working_days: string[]
+      working_hours_start: string | null
+      working_hours_end: string | null
+    }
+    Insert: Partial<Tables['doctor_branches']['Row']> & { doctor_id: string; branch_id: string }
+    Update: Partial<Tables['doctor_branches']['Row']>
   }
   patients: {
     Row: {
@@ -175,20 +176,36 @@ type Tables = {
       id: string
       patient_id: string
       insurance_id: string
-      treatment_id: string
+      invoice_id: string
       claim_amount: number
       approved_amount: number | null
       status: ClaimStatus
       submitted_date: string
       resolved_date: string | null
+      notes: string | null
     }
     Insert: Partial<Tables['insurance_claims']['Row']> & {
       patient_id: string
       insurance_id: string
-      treatment_id: string
+      invoice_id: string
       claim_amount: number
     }
     Update: Partial<Tables['insurance_claims']['Row']>
+  }
+  insurance_claim_collections: {
+    Row: {
+      id: string
+      claim_id: string
+      amount: number
+      received_date: string
+      notes: string | null
+      created_at: string
+    }
+    Insert: Partial<Tables['insurance_claim_collections']['Row']> & {
+      claim_id: string
+      amount: number
+    }
+    Update: Partial<Tables['insurance_claim_collections']['Row']>
   }
   invoices: {
     Row: {
@@ -247,6 +264,8 @@ export type Treatment = Tables['treatments']['Row']
 export type DentalChartEntry = Tables['dental_chart']['Row']
 export type Insurance = Tables['insurances']['Row']
 export type InsuranceClaim = Tables['insurance_claims']['Row']
+export type InsuranceClaimCollection = Tables['insurance_claim_collections']['Row']
 export type Invoice = Tables['invoices']['Row']
 export type Payment = Tables['payments']['Row']
 export type AppUser = Tables['users']['Row']
+export type DoctorBranch = Tables['doctor_branches']['Row']

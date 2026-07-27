@@ -21,9 +21,6 @@ export type DoctorInput = {
   specialty?: string
   phone?: string
   email?: string
-  working_days?: string[]
-  working_hours_start?: string | null
-  working_hours_end?: string | null
 }
 
 export function useCreateDoctor() {
@@ -32,7 +29,7 @@ export function useCreateDoctor() {
     mutationFn: async (input: DoctorInput) => {
       const { data, error } = await supabase.from('doctors').insert(input).select().single()
       if (error) throw error
-      return data
+      return data as Doctor
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['doctors'] }),
   })
@@ -58,5 +55,63 @@ export function useSetDoctorActive() {
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['doctors'] }),
+  })
+}
+
+export interface DoctorBranchSchedule {
+  branch_id: string
+  branch_name: string
+  working_days: string[]
+  working_hours_start: string | null
+  working_hours_end: string | null
+}
+
+export function useDoctorBranchSchedules(doctorId: string | undefined) {
+  return useQuery({
+    queryKey: ['doctor-branches', doctorId],
+    enabled: !!doctorId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('doctor_branches')
+        .select('branch_id, working_days, working_hours_start, working_hours_end, branches(name)')
+        .eq('doctor_id', doctorId as string)
+      if (error) throw error
+      return (data as unknown as (DoctorBranchSchedule & { branches: { name: string } | null })[]).map((row) => ({
+        branch_id: row.branch_id,
+        branch_name: row.branches?.name ?? '',
+        working_days: row.working_days,
+        working_hours_start: row.working_hours_start,
+        working_hours_end: row.working_hours_end,
+      }))
+    },
+  })
+}
+
+export type DoctorBranchInput = {
+  branch_id: string
+  working_days: string[]
+  working_hours_start: string
+  working_hours_end: string
+}
+
+/** Replaces the doctor's full set of branch assignments/schedules in one go. */
+export function useSetDoctorBranches() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ doctorId, branches }: { doctorId: string; branches: DoctorBranchInput[] }) => {
+      const { error: deleteError } = await supabase.from('doctor_branches').delete().eq('doctor_id', doctorId)
+      if (deleteError) throw deleteError
+
+      if (branches.length > 0) {
+        const { error: insertError } = await supabase
+          .from('doctor_branches')
+          .insert(branches.map((b) => ({ doctor_id: doctorId, ...b })))
+        if (insertError) throw insertError
+      }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['doctor-branches', variables.doctorId] })
+      queryClient.invalidateQueries({ queryKey: ['doctors-for-branch'] })
+    },
   })
 }

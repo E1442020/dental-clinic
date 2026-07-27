@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useForm } from 'react-hook-form'
-import { Plus, Phone, MoreVertical, Pencil, Power, PowerOff } from 'lucide-react'
+import { Plus, Phone, MoreVertical, Pencil, Power, PowerOff, Building2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -15,7 +15,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { useDoctors, useCreateDoctor, useUpdateDoctor, useSetDoctorActive } from '@/features/doctors/api'
+import {
+  useDoctors,
+  useCreateDoctor,
+  useUpdateDoctor,
+  useSetDoctorActive,
+  useDoctorBranchSchedules,
+  useSetDoctorBranches,
+  type DoctorBranchInput,
+} from '@/features/doctors/api'
+import { useBranches } from '@/features/branches/api'
 import { toast } from '@/hooks/use-toast'
 import { weekdays } from '@/lib/weekdays'
 import { cn } from '@/lib/utils'
@@ -26,8 +35,17 @@ interface FormValues {
   specialty: string
   phone: string
   email: string
-  working_hours_start: string
-  working_hours_end: string
+}
+
+interface BranchScheduleState {
+  enabled: boolean
+  days: string[]
+  start: string
+  end: string
+}
+
+function emptyBranchSchedule(): BranchScheduleState {
+  return { enabled: false, days: [], start: '', end: '' }
 }
 
 function DoctorFormDialog({
@@ -42,13 +60,15 @@ function DoctorFormDialog({
   const isEdit = !!doctor
   const createDoctor = useCreateDoctor()
   const updateDoctor = useUpdateDoctor()
-  const [workingDays, setWorkingDays] = React.useState<string[]>([])
-  const [daysError, setDaysError] = React.useState<string | null>(null)
+  const setDoctorBranches = useSetDoctorBranches()
+  const { data: branches } = useBranches()
+  const { data: existingSchedules } = useDoctorBranchSchedules(doctor?.id)
+  const [branchSchedules, setBranchSchedules] = React.useState<Record<string, BranchScheduleState>>({})
+  const [branchesError, setBranchesError] = React.useState<string | null>(null)
   const {
     register,
     handleSubmit,
     reset,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>()
 
@@ -59,33 +79,64 @@ function DoctorFormDialog({
         specialty: doctor?.specialty ?? '',
         phone: doctor?.phone ?? '',
         email: doctor?.email ?? '',
-        working_hours_start: doctor?.working_hours_start?.slice(0, 5) ?? '',
-        working_hours_end: doctor?.working_hours_end?.slice(0, 5) ?? '',
       })
-      setWorkingDays(doctor?.working_days ?? [])
-      setDaysError(null)
-    }
-  }, [open, doctor, reset])
+      setBranchesError(null)
 
-  function toggleDay(code: string) {
-    setWorkingDays((days) => (days.includes(code) ? days.filter((d) => d !== code) : [...days, code]))
-    setDaysError(null)
+      const map: Record<string, BranchScheduleState> = {}
+      for (const b of branches ?? []) map[b.id] = emptyBranchSchedule()
+      for (const s of existingSchedules ?? []) {
+        map[s.branch_id] = {
+          enabled: true,
+          days: s.working_days,
+          start: s.working_hours_start?.slice(0, 5) ?? '',
+          end: s.working_hours_end?.slice(0, 5) ?? '',
+        }
+      }
+      setBranchSchedules(map)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, doctor, branches, existingSchedules, reset])
+
+  function updateBranchSchedule(branchId: string, patch: Partial<BranchScheduleState>) {
+    setBranchSchedules((prev) => ({ ...prev, [branchId]: { ...(prev[branchId] ?? emptyBranchSchedule()), ...patch } }))
+    setBranchesError(null)
+  }
+
+  function toggleBranchDay(branchId: string, code: string) {
+    const current = branchSchedules[branchId] ?? emptyBranchSchedule()
+    const days = current.days.includes(code) ? current.days.filter((d) => d !== code) : [...current.days, code]
+    updateBranchSchedule(branchId, { days })
   }
 
   async function onSubmit(values: FormValues) {
-    if (workingDays.length === 0) {
-      setDaysError('اختر يوم عمل واحد على الأقل')
+    const enabledEntries = Object.entries(branchSchedules).filter(([, s]) => s.enabled)
+
+    if (enabledEntries.length === 0) {
+      setBranchesError('اختر فرع واحد على الأقل يعمل به الدكتور')
       return
     }
-    const payload = { ...values, working_days: workingDays }
-    try {
-      if (isEdit) {
-        await updateDoctor.mutateAsync({ id: doctor.id, ...payload })
-        toast({ title: 'تم تحديث بيانات الدكتور', variant: 'success' })
-      } else {
-        await createDoctor.mutateAsync(payload)
-        toast({ title: 'تم إضافة الدكتور', variant: 'success' })
+    for (const [, s] of enabledEntries) {
+      if (s.days.length === 0 || !s.start || !s.end || !(s.end > s.start)) {
+        setBranchesError('لكل فرع مفعّل: اختر يوم عمل واحد على الأقل ووقت دوام صحيح (النهاية بعد البداية)')
+        return
       }
+    }
+
+    const branchesPayload: DoctorBranchInput[] = enabledEntries.map(([branch_id, s]) => ({
+      branch_id,
+      working_days: s.days,
+      working_hours_start: s.start,
+      working_hours_end: s.end,
+    }))
+
+    try {
+      const doctorId = isEdit
+        ? (await updateDoctor.mutateAsync({ id: doctor.id, ...values })).id
+        : (await createDoctor.mutateAsync(values)).id
+
+      await setDoctorBranches.mutateAsync({ doctorId, branches: branchesPayload })
+
+      toast({ title: isEdit ? 'تم تحديث بيانات الدكتور' : 'تم إضافة الدكتور', variant: 'success' })
       onOpenChange(false)
     } catch (err) {
       toast({ title: 'حدث خطأ', description: (err as Error).message, variant: 'destructive' })
@@ -94,7 +145,7 @@ function DoctorFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'تعديل بيانات الدكتور' : 'إضافة دكتور جديد'}</DialogTitle>
         </DialogHeader>
@@ -118,60 +169,90 @@ function DoctorFormDialog({
           </div>
 
           <div>
-            <Label>أيام العمل *</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {weekdays.map((d) => (
-                <button
-                  key={d.code}
-                  type="button"
-                  onClick={() => toggleDay(d.code)}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                    workingDays.includes(d.code)
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-input bg-card text-muted-foreground hover:bg-accent',
-                  )}
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            {daysError && <p className="mt-1 text-xs text-destructive">{daysError}</p>}
-          </div>
+            <Label>الفروع وموعد العمل بها *</Label>
+            <p className="mb-2 text-xs text-muted-foreground">
+              حدّدي الفروع اللي الدكتور بيشتغل فيها، ولكل فرع أيام وساعات دوام مختلفة عن التانية
+            </p>
+            <div className="flex flex-col gap-2">
+              {(branches ?? []).map((b) => {
+                const schedule = branchSchedules[b.id] ?? emptyBranchSchedule()
+                return (
+                  <div key={b.id} className="rounded-lg border border-border p-3">
+                    <button
+                      type="button"
+                      onClick={() => updateBranchSchedule(b.id, { enabled: !schedule.enabled })}
+                      className="flex w-full items-center justify-between text-start"
+                    >
+                      <span className="inline-flex items-center gap-2 text-sm font-semibold">
+                        <Building2 className="size-4 text-muted-foreground" />
+                        {b.name}
+                      </span>
+                      <span
+                        className={cn(
+                          'rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors',
+                          schedule.enabled
+                            ? 'border-primary bg-primary text-primary-foreground'
+                            : 'border-input text-muted-foreground',
+                        )}
+                      >
+                        {schedule.enabled ? 'يعمل هنا' : 'لا يعمل هنا'}
+                      </span>
+                    </button>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="working_hours_start">بداية الدوام *</Label>
-              <Input
-                id="working_hours_start"
-                type="time"
-                {...register('working_hours_start', { required: 'مطلوب' })}
-              />
-              {errors.working_hours_start && (
-                <p className="mt-1 text-xs text-destructive">{errors.working_hours_start.message}</p>
+                    {schedule.enabled && (
+                      <div className="mt-3 flex flex-col gap-3 border-t border-border pt-3">
+                        <div className="flex flex-wrap gap-1.5">
+                          {weekdays.map((d) => (
+                            <button
+                              key={d.code}
+                              type="button"
+                              onClick={() => toggleBranchDay(b.id, d.code)}
+                              className={cn(
+                                'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                schedule.days.includes(d.code)
+                                  ? 'border-primary bg-primary text-primary-foreground'
+                                  : 'border-input bg-card text-muted-foreground hover:bg-accent',
+                              )}
+                            >
+                              {d.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">بداية الدوام</Label>
+                            <Input
+                              type="time"
+                              value={schedule.start}
+                              onChange={(e) => updateBranchSchedule(b.id, { start: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">نهاية الدوام</Label>
+                            <Input
+                              type="time"
+                              value={schedule.end}
+                              onChange={(e) => updateBranchSchedule(b.id, { end: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+              {(branches ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">لا توجد فروع بعد — أضيفي فرع أولًا من صفحة الفروع</p>
               )}
             </div>
-            <div>
-              <Label htmlFor="working_hours_end">نهاية الدوام *</Label>
-              <Input
-                id="working_hours_end"
-                type="time"
-                {...register('working_hours_end', {
-                  required: 'مطلوب',
-                  validate: (value) => value > watch('working_hours_start') || 'يجب أن تكون بعد وقت البداية',
-                })}
-              />
-              {errors.working_hours_end && (
-                <p className="mt-1 text-xs text-destructive">{errors.working_hours_end.message}</p>
-              )}
-            </div>
+            {branchesError && <p className="mt-1 text-xs text-destructive">{branchesError}</p>}
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               إلغاء
             </Button>
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="submit" disabled={isSubmitting || setDoctorBranches.isPending}>
               {isEdit ? 'حفظ التعديلات' : 'إضافة'}
             </Button>
           </DialogFooter>

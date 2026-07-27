@@ -6,6 +6,7 @@ import { useTreatments } from '@/features/treatments/api'
 import { TreatmentFormFields } from '@/features/treatments/TreatmentFormFields'
 import { ToothCrown, toothRadialOffset } from './ToothShape'
 import { archLayout, archBandPath } from './toothGeometry'
+import { toothLabel, toothShortLabel } from './toothLabels'
 import { toothStatusLabels } from '@/lib/roles'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import type { ToothStatus } from '@/types/database'
@@ -64,7 +65,7 @@ function ArchSvg({
                     textAnchor="middle"
                     className="fill-slate-500 text-[7px] font-bold dark:fill-slate-400"
                   >
-                    {n}
+                    {toothShortLabel(n)}
                   </text>
                 </g>
               </g>
@@ -119,7 +120,7 @@ export function DentalChartView({ patientId }: { patientId: string }) {
         />
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        دوس على أي سنة لتعديل حالتها أو تسجيل علاج · الترقيم حسب النظام العالمي (Universal 1-32) والرسمة كأنك واقف قدام المريض
+        دوس على أي سنة لتعديل حالتها أو تسجيل علاج · الرقم الظاهر على كل سنة هو ترتيبها من المنتصف (1-8) والرسمة كأنك واقف قدام المريض
       </p>
 
       {openTooth !== null && (
@@ -150,7 +151,7 @@ function ToothDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>السنة رقم {tooth}</DialogTitle>
+          <DialogTitle>سن {toothLabel(tooth)}</DialogTitle>
           {entry && <DialogDescription>آخر تحديث {formatDate(entry.last_updated)}</DialogDescription>}
         </DialogHeader>
 

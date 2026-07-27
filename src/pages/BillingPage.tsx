@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/table'
 import { useAllInvoices } from '@/features/billing/api'
 import { BillingSummary } from '@/features/billing/BillingSummary'
+import { useBranchContext } from '@/features/branches/BranchContext'
 import { invoiceStatusLabels } from '@/lib/roles'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { InvoiceStatus } from '@/types/database'
@@ -42,8 +43,18 @@ function billingRangeToDates(range: BillingRangeKey) {
   return { from: from.toISOString().slice(0, 10), to: today }
 }
 
-function InvoicesTable({ status, from, to }: { status?: InvoiceStatus; from?: string; to?: string }) {
-  const { data: invoices, isLoading } = useAllInvoices(status, from, to)
+function InvoicesTable({
+  status,
+  from,
+  to,
+  branchId,
+}: {
+  status?: InvoiceStatus
+  from?: string
+  to?: string
+  branchId?: string
+}) {
+  const { data: invoices, isLoading } = useAllInvoices(status, from, to, branchId)
   const navigate = useNavigate()
 
   const totalAmount = invoices?.reduce((s, inv) => s + Number(inv.total_amount), 0) ?? 0
@@ -109,25 +120,43 @@ function InvoicesTable({ status, from, to }: { status?: InvoiceStatus; from?: st
 
 export default function BillingPage() {
   const [range, setRange] = React.useState<BillingRangeKey>('today')
+  const [branchId, setBranchId] = React.useState<string>('all')
   const { from, to } = billingRangeToDates(range)
-  const { data: summaryInvoices } = useAllInvoices(undefined, from, to)
+  const { branches } = useBranchContext()
+  const effectiveBranchId = branchId === 'all' ? undefined : branchId
+  const { data: summaryInvoices } = useAllInvoices(undefined, from, to, effectiveBranchId)
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-lg font-bold">ملخص الحسابات</h2>
-        <Select value={range} onValueChange={(v) => setRange(v as BillingRangeKey)}>
-          <SelectTrigger className="w-44">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {billingRangeOptions.map((opt) => (
-              <SelectItem key={opt.key} value={opt.key}>
-                {opt.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={branchId} onValueChange={setBranchId}>
+            <SelectTrigger className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">كل الفروع</SelectItem>
+              {branches.map((b) => (
+                <SelectItem key={b.id} value={b.id}>
+                  {b.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={range} onValueChange={(v) => setRange(v as BillingRangeKey)}>
+            <SelectTrigger className="w-44">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {billingRangeOptions.map((opt) => (
+                <SelectItem key={opt.key} value={opt.key}>
+                  {opt.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {summaryInvoices && <BillingSummary invoices={summaryInvoices} />}
@@ -140,16 +169,16 @@ export default function BillingPage() {
           <TabsTrigger value="paid">مدفوعة</TabsTrigger>
         </TabsList>
         <TabsContent value="all">
-          <InvoicesTable from={from} to={to} />
+          <InvoicesTable from={from} to={to} branchId={effectiveBranchId} />
         </TabsContent>
         <TabsContent value="unpaid">
-          <InvoicesTable status="unpaid" from={from} to={to} />
+          <InvoicesTable status="unpaid" from={from} to={to} branchId={effectiveBranchId} />
         </TabsContent>
         <TabsContent value="partial">
-          <InvoicesTable status="partial" from={from} to={to} />
+          <InvoicesTable status="partial" from={from} to={to} branchId={effectiveBranchId} />
         </TabsContent>
         <TabsContent value="paid">
-          <InvoicesTable status="paid" from={from} to={to} />
+          <InvoicesTable status="paid" from={from} to={to} branchId={effectiveBranchId} />
         </TabsContent>
       </Tabs>
     </div>
