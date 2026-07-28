@@ -1,36 +1,9 @@
 import { NavLink } from 'react-router-dom'
-import {
-  LayoutDashboard,
-  Users,
-  CalendarDays,
-  Building2,
-  ShieldCheck,
-  Receipt,
-  Stethoscope,
-  UserCog,
-} from 'lucide-react'
+import { Stethoscope } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useClinicSettings } from '@/features/clinic-settings/api'
-import type { UserRole } from '@/types/database'
-
-interface NavItem {
-  to: string
-  label: string
-  icon: typeof LayoutDashboard
-  roles?: UserRole[]
-}
-
-const navItems: NavItem[] = [
-  { to: '/', label: 'لوحة التحكم', icon: LayoutDashboard },
-  { to: '/patients', label: 'المرضى', icon: Users },
-  { to: '/appointments', label: 'المواعيد', icon: CalendarDays },
-  { to: '/doctors', label: 'الأطباء', icon: Stethoscope, roles: ['admin'] },
-  { to: '/branches', label: 'الفروع', icon: Building2, roles: ['admin'] },
-  { to: '/insurance', label: 'شركات التأمين', icon: ShieldCheck, roles: ['admin', 'receptionist', 'accountant'] },
-  { to: '/billing', label: 'الحسابات والفواتير', icon: Receipt, roles: ['admin', 'accountant', 'receptionist'] },
-  { to: '/staff', label: 'الموظفون', icon: UserCog, roles: ['admin'] },
-]
+import { navItems } from './navItems'
 
 export function Sidebar() {
   const { profile } = useAuth()
