@@ -91,10 +91,12 @@ export function useUploadTreatmentPhoto() {
       const { error: uploadError } = await supabase.storage.from(TREATMENT_PHOTOS_BUCKET).upload(path, file)
       if (uploadError) throw uploadError
 
-      const column = kind === 'before' ? 'before_image_url' : 'after_image_url'
+      // A computed key ({ [column]: path }) types as a generic string index signature, which
+      // supabase-js's Update type rejects — an explicit branch keeps each object's keys literal.
+      const update = kind === 'before' ? { before_image_url: path } : { after_image_url: path }
       const { data, error } = await supabase
         .from('treatments')
-        .update({ [column]: path })
+        .update(update)
         .eq('id', treatmentId)
         .select()
         .single()
@@ -124,10 +126,10 @@ export function useDeleteTreatmentPhoto() {
       const { error: removeError } = await supabase.storage.from(TREATMENT_PHOTOS_BUCKET).remove([path])
       if (removeError) throw removeError
 
-      const column = kind === 'before' ? 'before_image_url' : 'after_image_url'
+      const update = kind === 'before' ? { before_image_url: null } : { after_image_url: null }
       const { data, error } = await supabase
         .from('treatments')
-        .update({ [column]: null })
+        .update(update)
         .eq('id', treatmentId)
         .select()
         .single()

@@ -96,6 +96,10 @@ function ReminderButton({
   const { data: clinicSettings } = useClinicSettings()
   const patient = appointment.patients
   if (!patient) return null
+  // Captured as plain strings (not the `patient` object) so the closures below don't rely on
+  // TypeScript preserving the null-check's narrowing across a function boundary.
+  const patientName = patient.full_name
+  const patientPhone = patient.phone
 
   async function handleClick() {
     const doctorName = appointment.doctors?.full_name
@@ -103,7 +107,7 @@ function ReminderButton({
     const branchPart = branchName ? ` في ${branchName}` : ''
     const signature = clinicSettings?.name ? `\n\nعيادة ${clinicSettings.name}` : ''
     const contactLine = clinicSettings?.whatsapp_number ? `\nللتواصل: ${clinicSettings.whatsapp_number}` : ''
-    const message = `مرحبًا ${patient.full_name}، تذكير بموعدك${branchPart} يوم ${formatFullDayLabel(appointment.appointment_date)} الساعة ${formatTime(appointment.start_time)}${doctorPart}.${signature}${contactLine}`
+    const message = `مرحبًا ${patientName}، تذكير بموعدك${branchPart} يوم ${formatFullDayLabel(appointment.appointment_date)} الساعة ${formatTime(appointment.start_time)}${doctorPart}.${signature}${contactLine}`
 
     if (!appointment.reminder_sent) {
       try {
@@ -115,7 +119,7 @@ function ReminderButton({
     toast({ title: 'واتساب هيفتح دلوقتي — دوس إرسال جوه المحادثة' })
     // تأخيرة بسيطة عشان يبان التنبيه قبل ما الصفحة تتنقل؛ نفس الصفحة (مش تاب جديد) عشان التجربة تبقى أسرع
     window.setTimeout(() => {
-      window.location.href = whatsAppLink(patient.phone, message)
+      window.location.href = whatsAppLink(patientPhone, message)
     }, 400)
   }
 

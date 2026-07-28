@@ -58,7 +58,8 @@ export function AppointmentForm({
   const debouncedPatientSearch = useDebouncedValue(patientSearch)
   const { currentBranchId, currentBranch } = useBranchContext()
   const { data: doctors } = useDoctorsForBranch(currentBranchId)
-  const { data: patientResults } = usePatients(debouncedPatientSearch)
+  const { data: patientResults } = usePatients(debouncedPatientSearch, 0)
+  const patients = patientResults?.patients
   const createAppointment = useCreateAppointment()
   const createPatient = useCreatePatient()
 
@@ -212,8 +213,8 @@ export function AppointmentForm({
                 />
                 {patientSearch && (
                   <div className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-md border border-border bg-popover shadow-md">
-                    {patientResults && patientResults.length > 0 ? (
-                      patientResults.map((p) => (
+                    {patients && patients.length > 0 ? (
+                      patients.map((p) => (
                         <button
                           type="button"
                           key={p.id}
