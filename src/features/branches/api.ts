@@ -52,3 +52,18 @@ export function useSetBranchActive() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['branches'] }),
   })
 }
+
+/** Branch IDs a given user (receptionist, doctor, ...) is assigned to — see user_branches:
+ * branch-scoped RLS checks membership here rather than a single fixed branch, since some staff
+ * genuinely work across more than one branch. */
+export function useUserBranchIds(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['user-branches', userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('user_branches').select('branch_id').eq('user_id', userId as string)
+      if (error) throw error
+      return (data as { branch_id: string }[]).map((row) => row.branch_id)
+    },
+  })
+}

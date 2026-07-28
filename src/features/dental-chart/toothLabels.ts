@@ -20,9 +20,20 @@ export function toothLabel(n: number): string {
   return `${archLabels[arch]} ${sideLabels[side]} ${position}`
 }
 
-/** Short label for cramped spaces (the on-graphic tooth number) — just the 1-8 position. */
-export function toothShortLabel(n: number): string {
-  return String(toothArchSidePosition(n).position)
+const scientificNameByPosition: Record<number, string> = {
+  1: 'Central Incisor',
+  2: 'Lateral Incisor',
+  3: 'Canine (Cuspid)',
+  4: 'First Premolar',
+  5: 'Second Premolar',
+  6: 'First Molar',
+  7: 'Second Molar',
+  8: 'Third Molar',
+}
+
+/** English scientific name of the tooth, e.g. "First Molar". */
+export function toothScientificName(n: number): string {
+  return scientificNameByPosition[toothArchSidePosition(n).position]
 }
 
 /** All 32 teeth in Universal-number order, for building a friendly <Select>. */

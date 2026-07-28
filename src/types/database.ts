@@ -82,6 +82,14 @@ type Tables = {
     Insert: Partial<Tables['doctor_branches']['Row']> & { doctor_id: string; branch_id: string }
     Update: Partial<Tables['doctor_branches']['Row']>
   }
+  user_branches: {
+    Row: {
+      user_id: string
+      branch_id: string
+    }
+    Insert: Partial<Tables['user_branches']['Row']> & { user_id: string; branch_id: string }
+    Update: Partial<Tables['user_branches']['Row']>
+  }
   patients: {
     Row: {
       id: string
@@ -244,6 +252,16 @@ type Tables = {
     }
     Update: Partial<Tables['payments']['Row']>
   }
+  clinic_settings: {
+    Row: {
+      id: true
+      name: string
+      whatsapp_number: string | null
+      updated_at: string
+    }
+    Insert: Partial<Tables['clinic_settings']['Row']> & { name: string }
+    Update: Partial<Tables['clinic_settings']['Row']>
+  }
 }
 
 type WithRelationships<T> = { [K in keyof T]: T[K] & { Relationships: [] } }
@@ -269,3 +287,4 @@ export type Invoice = Tables['invoices']['Row']
 export type Payment = Tables['payments']['Row']
 export type AppUser = Tables['users']['Row']
 export type DoctorBranch = Tables['doctor_branches']['Row']
+export type ClinicSettings = Tables['clinic_settings']['Row']

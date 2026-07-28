@@ -83,3 +83,21 @@
     display: none;
   }
 }
+
+/* Print-only view: hides everything on the page except whatever is marked as
+   #invoice-print-area, so "طباعة" (or the browser's Save-as-PDF) only outputs
+   the invoice itself, not the app chrome around it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #invoice-print-area,
+  #invoice-print-area * {
+    visibility: visible;
+  }
+  #invoice-print-area {
+    position: absolute;
+    inset: 0;
+    padding: 1rem;
+  }
+}

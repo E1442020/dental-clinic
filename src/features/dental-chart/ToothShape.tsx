@@ -12,31 +12,34 @@ const fillByStatus: Record<ToothStatus, string> = {
   implant: 'fill-success/40 stroke-success',
 }
 
-/**
- * Local-coordinate crown outline per tooth type, drawn so the tip (outward, away from the
- * arch center) points toward negative-y and the gum-line (inward) sits near positive-y.
- * Caller positions/rotates via a wrapping <g transform>.
- */
-export function ToothCrown({ kind, status }: { kind: ToothKind; status: ToothStatus }) {
-  const cls = cn('stroke-[1.1]', fillByStatus[status])
-
-  switch (kind) {
-    case 'incisor':
-      return <rect x={-5.5} y={-15} width={11} height={24} rx={3.5} className={cls} />
-    case 'canine':
-      return (
-        <path
-          d="M -6.5,10 C -7.5,0 -6,-8 0,-18 C 6,-8 7.5,0 6.5,10 C 6.5,13.5 -6.5,13.5 -6.5,10 Z"
-          className={cls}
-        />
-      )
-    case 'premolar':
-      return <rect x={-7} y={-14} width={14} height={25} rx={7} className={cls} />
-    case 'molar':
-      return <rect x={-9} y={-13} width={18} height={24} rx={5.5} className={cls} />
-  }
+const rootPathByKind: Record<ToothKind, string> = {
+  incisor: 'M -3,0 L 3,0 L 0,13 Z',
+  canine: 'M -3,0 L 3,0 L 0,17 Z',
+  premolar: 'M -3,0 L 3,0 L 1.5,9 L 0,7 L -1.5,9 Z',
+  molar: 'M -5,0 L -1.5,0 L -3,11 Z M 1.5,0 L 5,0 L 3,11 Z',
 }
 
-export function toothRadialOffset(kind: ToothKind) {
-  return kind === 'incisor' ? -15 : kind === 'canine' ? -18 : kind === 'premolar' ? -14 : -13
+const crownPathByKind: Record<ToothKind, string> = {
+  incisor: 'M -5,0 C -5,-9 -4,-13 0,-15 C 4,-13 5,-9 5,0 Z',
+  canine: 'M -4.5,0 C -4.5,-6 -3,-9 0,-17 C 3,-9 4.5,-6 4.5,0 Z',
+  premolar: 'M -6,0 C -6,-6 -5.5,-9 -3,-9 L -3,-12 L 0,-8 L 3,-12 L 3,-9 C 5.5,-9 6,-6 6,0 Z',
+  molar: 'M -8,0 C -8,-6 -7,-9 -5,-10 L -2.5,-7 L 0,-10 L 2.5,-7 L 5,-10 C 7,-9 8,-6 8,0 Z',
+}
+
+/**
+ * Stylized front-view tooth icon in the style of an anatomy chart: a root silhouette (shape,
+ * length and prong-count vary by kind, like real tooth anatomy) below a crown, both colored the
+ * same by clinical status so the whole tooth reads as one piece. Drawn crown-up/root-down in a
+ * shared coordinate system (gumline at y=0) so every tooth lines up on the same baseline in a
+ * row; the caller flips the whole icon vertically for the upper arch, where the crown hangs down
+ * and the root sits up in the jaw.
+ */
+export function ToothIcon({ kind, status }: { kind: ToothKind; status: ToothStatus }) {
+  const cls = cn('stroke-[0.9]', fillByStatus[status])
+  return (
+    <>
+      <path d={rootPathByKind[kind]} className={cls} />
+      <path d={crownPathByKind[kind]} className={cls} />
+    </>
+  )
 }

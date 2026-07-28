@@ -7,9 +7,11 @@ import {
   ShieldCheck,
   Receipt,
   Stethoscope,
+  UserCog,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/AuthProvider'
+import { useClinicSettings } from '@/features/clinic-settings/api'
 import type { UserRole } from '@/types/database'
 
 interface NavItem {
@@ -27,10 +29,12 @@ const navItems: NavItem[] = [
   { to: '/branches', label: 'الفروع', icon: Building2, roles: ['admin'] },
   { to: '/insurance', label: 'شركات التأمين', icon: ShieldCheck, roles: ['admin', 'receptionist', 'accountant'] },
   { to: '/billing', label: 'الحسابات والفواتير', icon: Receipt, roles: ['admin', 'accountant', 'receptionist'] },
+  { to: '/staff', label: 'الموظفون', icon: UserCog, roles: ['admin'] },
 ]
 
 export function Sidebar() {
   const { profile } = useAuth()
+  const { data: clinicSettings } = useClinicSettings()
   const role = profile?.role
 
   const items = navItems.filter((item) => !item.roles || (role && item.roles.includes(role)))
@@ -38,10 +42,10 @@ export function Sidebar() {
   return (
     <aside className="hidden w-64 shrink-0 border-e border-border bg-card md:flex md:flex-col">
       <div className="flex h-16 items-center gap-2 border-b border-border px-5">
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
           <Stethoscope className="size-5" />
         </div>
-        <span className="font-bold">عيادة الأسنان</span>
+        <span className="truncate font-bold">{clinicSettings?.name ?? 'عيادة الأسنان'}</span>
       </div>
       <nav className="flex flex-1 flex-col gap-1 p-3">
         {items.map((item) => (

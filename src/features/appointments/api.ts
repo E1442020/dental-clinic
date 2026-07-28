@@ -44,9 +44,9 @@ export interface AppointmentWithRelations extends Appointment {
   branches: { name: string } | null
 }
 
-export function useAppointmentsByDate(date: string, branchId?: string) {
+export function useAppointmentsByDate(date: string, branchId?: string, doctorId?: string) {
   return useQuery({
-    queryKey: ['appointments', 'by-date', date, branchId ?? 'all'],
+    queryKey: ['appointments', 'by-date', date, branchId ?? 'all', doctorId ?? 'all'],
     queryFn: async () => {
       let query = supabase
         .from('appointments')
@@ -54,6 +54,28 @@ export function useAppointmentsByDate(date: string, branchId?: string) {
         .eq('appointment_date', date)
         .order('start_time')
       if (branchId) query = query.eq('branch_id', branchId)
+      if (doctorId) query = query.eq('doctor_id', doctorId)
+      const { data, error } = await query
+      if (error) throw error
+      return data as unknown as AppointmentWithRelations[]
+    },
+  })
+}
+
+/** Powers the week/month calendar views — one range query instead of one per visible day. */
+export function useAppointmentsByDateRange(from: string, to: string, branchId?: string, doctorId?: string) {
+  return useQuery({
+    queryKey: ['appointments', 'by-range', from, to, branchId ?? 'all', doctorId ?? 'all'],
+    queryFn: async () => {
+      let query = supabase
+        .from('appointments')
+        .select('*, patients(full_name, phone), doctors(full_name), branches(name)')
+        .gte('appointment_date', from)
+        .lte('appointment_date', to)
+        .order('appointment_date')
+        .order('start_time')
+      if (branchId) query = query.eq('branch_id', branchId)
+      if (doctorId) query = query.eq('doctor_id', doctorId)
       const { data, error } = await query
       if (error) throw error
       return data as unknown as AppointmentWithRelations[]
@@ -132,6 +154,23 @@ export function useUpdateAppointmentStatus() {
       const { data, error } = await supabase
         .from('appointments')
         .update({ status })
+        .eq('id', id)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Appointment
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['appointments'] }),
+  })
+}
+
+export function useMarkReminderSent() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { data, error } = await supabase
+        .from('appointments')
+        .update({ reminder_sent: true })
         .eq('id', id)
         .select()
         .single()

@@ -4,76 +4,58 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useDentalChart, useSetToothStatus } from './api'
 import { useTreatments } from '@/features/treatments/api'
 import { TreatmentFormFields } from '@/features/treatments/TreatmentFormFields'
-import { ToothCrown, toothRadialOffset } from './ToothShape'
-import { archLayout, archBandPath } from './toothGeometry'
-import { toothLabel, toothShortLabel } from './toothLabels'
+import { ToothIcon } from './ToothShape'
+import { toothKind } from './toothGeometry'
+import { toothLabel, toothScientificName } from './toothLabels'
 import { toothStatusLabels } from '@/lib/roles'
 import { formatDate, formatCurrency } from '@/lib/utils'
 import type { ToothStatus } from '@/types/database'
 
-const VIEW_W = 300
-const VIEW_H = 200
-const CENTER_X = VIEW_W / 2
-const CENTER_Y = VIEW_H / 2
-const RADIUS = 66
-const HALF_SPAN = 150
+const TOOTH_VIEWBOX = '-9 -19 18 38'
 
-const upperLayout = archLayout(CENTER_X, CENTER_Y, RADIUS, 180, HALF_SPAN)
-const lowerLayout = archLayout(CENTER_X, CENTER_Y, RADIUS, 0, HALF_SPAN)
-const upperTeeth = Array.from({ length: 16 }, (_, i) => i + 1)
-const lowerTeeth = Array.from({ length: 16 }, (_, i) => i + 17)
+// Universal Numbering System, laid out left-to-right the way patient-facing charts print it:
+// upper row runs 16 -> 1, lower row continues 17 -> 32, so the two wisdom teeth on the same
+// side (16/17, 1/32) sit in the same column.
+const upperRow = Array.from({ length: 16 }, (_, i) => 16 - i)
+const lowerRow = Array.from({ length: 16 }, (_, i) => 17 + i)
 
-function ArchSvg({
+function ToothRow({
   teeth,
-  layout,
-  frontAngle,
   statusByTooth,
   onSelect,
   label,
+  flip,
 }: {
   teeth: number[]
-  layout: ReturnType<typeof archLayout>
-  frontAngle: number
   statusByTooth: Map<number, ToothStatus>
   onSelect: (n: number) => void
   label: string
+  /** Upper arch: the crown hangs down and the root sits up in the jaw, so the icon is flipped. */
+  flip?: boolean
 }) {
-  const bandPath = archBandPath(CENTER_X, CENTER_Y, RADIUS + 20, RADIUS - 20, frontAngle, HALF_SPAN + 6)
-
   return (
-    <div className="flex flex-col items-center gap-1">
-      <svg viewBox={`0 0 ${VIEW_W} ${VIEW_H}`} className="w-full max-w-sm">
-        <path d={bandPath} strokeLinejoin="round" className="fill-rose-100 stroke-rose-200 dark:fill-rose-950/30 dark:stroke-rose-900/40" />
-        {teeth.map((n, i) => {
-          const pos = layout[i]
+    <div className="flex flex-col items-center gap-1.5">
+      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      <div dir="ltr" className="grid w-full grid-cols-16 justify-items-center gap-0.5 sm:gap-1">
+        {teeth.map((n) => {
           const status = statusByTooth.get(n) ?? 'healthy'
-          const numberOffset = toothRadialOffset(pos.kind) - 6
           return (
-            <g key={n} onClick={() => onSelect(n)} className="group cursor-pointer">
-              <circle
-                cx={pos.x}
-                cy={pos.y}
-                r={13}
-                className="fill-transparent transition-colors group-hover:fill-primary/15"
-              />
-              <g transform={`translate(${pos.x} ${pos.y}) rotate(${pos.rotate})`}>
-                <ToothCrown kind={pos.kind} status={status} />
-                <g transform={`rotate(${-pos.rotate})`}>
-                  <text
-                    x={0}
-                    y={numberOffset}
-                    textAnchor="middle"
-                    className="fill-slate-500 text-[7px] font-bold dark:fill-slate-400"
-                  >
-                    {toothShortLabel(n)}
-                  </text>
+            <button
+              key={n}
+              type="button"
+              onClick={() => onSelect(n)}
+              title={`${toothScientificName(n)} — ${toothLabel(n)}`}
+              className="group flex w-full flex-col items-center gap-0.5 rounded-md p-0.5 transition-colors hover:bg-primary/10"
+            >
+              <svg viewBox={TOOTH_VIEWBOX} className="h-auto w-full max-w-14">
+                <g transform={flip ? 'scale(1,-1)' : undefined}>
+                  <ToothIcon kind={toothKind(n)} status={status} />
                 </g>
-              </g>
-            </g>
+              </svg>
+            </button>
           )
         })}
-      </svg>
-      <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+      </div>
     </div>
   )
 }
@@ -93,34 +75,20 @@ export function DentalChartView({ patientId }: { patientId: string }) {
       <div className="flex flex-wrap items-center justify-center gap-3 text-xs">
         {Object.entries(toothStatusLabels).map(([value, label]) => (
           <span key={value} className="inline-flex items-center gap-1.5">
-            <svg viewBox="-9 -18 18 32" className="size-4">
-              <ToothCrown kind="premolar" status={value as ToothStatus} />
+            <svg viewBox={TOOTH_VIEWBOX} className="h-7 w-4">
+              <ToothIcon kind="premolar" status={value as ToothStatus} />
             </svg>
             {label}
           </span>
         ))}
       </div>
 
-      <div className="mx-auto grid w-full max-w-md grid-cols-1 gap-4">
-        <ArchSvg
-          teeth={upperTeeth}
-          layout={upperLayout}
-          frontAngle={180}
-          statusByTooth={statusByTooth}
-          onSelect={setOpenTooth}
-          label="الفك العلوي"
-        />
-        <ArchSvg
-          teeth={lowerTeeth}
-          layout={lowerLayout}
-          frontAngle={0}
-          statusByTooth={statusByTooth}
-          onSelect={setOpenTooth}
-          label="الفك السفلي"
-        />
+      <div className="flex w-full flex-col gap-6">
+        <ToothRow teeth={upperRow} statusByTooth={statusByTooth} onSelect={setOpenTooth} label="الفك العلوي" flip />
+        <ToothRow teeth={lowerRow} statusByTooth={statusByTooth} onSelect={setOpenTooth} label="الفك السفلي" />
       </div>
       <p className="text-center text-xs text-muted-foreground">
-        دوس على أي سنة لتعديل حالتها أو تسجيل علاج · الرقم الظاهر على كل سنة هو ترتيبها من المنتصف (1-8) والرسمة كأنك واقف قدام المريض
+        دوس على أي سنة لتعديل حالتها أو تسجيل علاج · مرر الماوس فوقها لمعرفة اسمها العلمي بالإنجليزي
       </p>
 
       {openTooth !== null && (
@@ -151,7 +119,10 @@ function ToothDialog({
     <Dialog open onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>سن {toothLabel(tooth)}</DialogTitle>
+          <DialogTitle>
+            سن {toothLabel(tooth)}{' '}
+            <span className="font-normal text-muted-foreground">({toothScientificName(tooth)})</span>
+          </DialogTitle>
           {entry && <DialogDescription>آخر تحديث {formatDate(entry.last_updated)}</DialogDescription>}
         </DialogHeader>
 

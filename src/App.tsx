@@ -17,6 +17,7 @@ const BranchesPage = lazy(() => import('@/pages/BranchesPage'))
 const InsurancePage = lazy(() => import('@/pages/InsurancePage'))
 const BillingPage = lazy(() => import('@/pages/BillingPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
+const StaffPage = lazy(() => import('@/pages/StaffPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const queryClient = new QueryClient({
@@ -82,6 +83,15 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         handle: { title: 'الحسابات والفواتير' },
+      },
+      {
+        path: 'staff',
+        element: (
+          <ProtectedRoute allow={['admin']}>
+            <StaffPage />
+          </ProtectedRoute>
+        ),
+        handle: { title: 'الموظفون' },
       },
     ],
   },

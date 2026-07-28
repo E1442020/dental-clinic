@@ -10,8 +10,9 @@ import { PatientForm } from '@/features/patients/PatientForm'
 import { useInsurances } from '@/features/insurance/api'
 import { usePatientAppointments } from '@/features/appointments/api'
 import { AppointmentForm } from '@/features/appointments/AppointmentForm'
-import { useTreatments } from '@/features/treatments/api'
+import { useTreatments, type TreatmentWithDoctor } from '@/features/treatments/api'
 import { TreatmentForm } from '@/features/treatments/TreatmentForm'
+import { TreatmentPhotos } from '@/features/treatments/TreatmentPhotos'
 import { DentalChartView } from '@/features/dental-chart/DentalChartView'
 import { toothLabel } from '@/features/dental-chart/toothLabels'
 import { BillingPanel } from '@/features/billing/BillingPanel'
@@ -28,7 +29,9 @@ export default function PatientProfilePage() {
   const { data: insurances } = useInsurances()
   const [editOpen, setEditOpen] = React.useState(false)
   const [apptFormOpen, setApptFormOpen] = React.useState(false)
-  const [treatmentFormOpen, setTreatmentFormOpen] = React.useState(false)
+  const [treatmentDialog, setTreatmentDialog] = React.useState<{ open: boolean; treatment?: TreatmentWithDoctor }>({
+    open: false,
+  })
 
   const insurance = insurances?.find((i) => i.id === patient?.insurance_id)
 
@@ -136,13 +139,18 @@ export default function PatientProfilePage() {
         {isClinical && (
           <TabsContent value="treatments">
             <div className="mb-3 flex justify-end">
-              <Button size="sm" onClick={() => setTreatmentFormOpen(true)}>
+              <Button size="sm" onClick={() => setTreatmentDialog({ open: true })}>
                 <Plus className="size-4" />
                 تسجيل علاج
               </Button>
             </div>
-            <TreatmentsList patientId={patient.id} />
-            <TreatmentForm open={treatmentFormOpen} onOpenChange={setTreatmentFormOpen} patientId={patient.id} />
+            <TreatmentsList patientId={patient.id} onEdit={(t) => setTreatmentDialog({ open: true, treatment: t })} />
+            <TreatmentForm
+              open={treatmentDialog.open}
+              onOpenChange={(open) => setTreatmentDialog((s) => ({ ...s, open }))}
+              patientId={patient.id}
+              treatment={treatmentDialog.treatment}
+            />
           </TabsContent>
         )}
 
@@ -194,7 +202,13 @@ function AppointmentsList({ patientId }: { patientId: string }) {
   )
 }
 
-function TreatmentsList({ patientId }: { patientId: string }) {
+function TreatmentsList({
+  patientId,
+  onEdit,
+}: {
+  patientId: string
+  onEdit: (treatment: TreatmentWithDoctor) => void
+}) {
   const { data: treatments, isLoading } = useTreatments(patientId)
   if (isLoading) return <p className="text-center text-muted-foreground">جارٍ التحميل...</p>
   if (!treatments?.length) return <p className="py-8 text-center text-muted-foreground">لا توجد علاجات مسجلة</p>
@@ -203,7 +217,7 @@ function TreatmentsList({ patientId }: { patientId: string }) {
     <div className="flex flex-col gap-2">
       {treatments.map((t) => (
         <Card key={t.id}>
-          <CardContent className="flex flex-wrap items-center justify-between gap-2 pt-5">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 pt-5">
             <div>
               <p className="font-semibold">
                 {t.procedure_type}
@@ -214,7 +228,14 @@ function TreatmentsList({ patientId }: { patientId: string }) {
                 {t.notes ? ` · ${t.notes}` : ''}
               </p>
             </div>
-            <p className="font-semibold">{formatCurrency(Number(t.cost))}</p>
+            <div className="flex items-center gap-3">
+              <TreatmentPhotos beforeUrl={t.before_image_url} afterUrl={t.after_image_url} />
+              <p className="font-semibold">{formatCurrency(Number(t.cost))}</p>
+              <Button size="sm" variant="outline" onClick={() => onEdit(t)}>
+                <Pencil className="size-4" />
+                تعديل
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ))}

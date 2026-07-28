@@ -1,5 +1,5 @@
 import { useForm } from 'react-hook-form'
-import { User as UserIcon, KeyRound } from 'lucide-react'
+import { User as UserIcon, KeyRound, Building2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useBranches } from '@/features/branches/api'
+import { useClinicSettings, useSaveClinicSettings } from '@/features/clinic-settings/api'
 import { roleLabels } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/hooks/use-toast'
@@ -18,8 +19,67 @@ interface NameFormValues {
 }
 
 interface PasswordFormValues {
+  current_password: string
   password: string
   confirm: string
+}
+
+interface ClinicFormValues {
+  name: string
+  whatsapp_number: string
+}
+
+function ClinicSettingsCard() {
+  const { data: clinicSettings } = useClinicSettings()
+  const saveSettings = useSaveClinicSettings()
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting, isDirty },
+  } = useForm<ClinicFormValues>({
+    values: { name: clinicSettings?.name ?? '', whatsapp_number: clinicSettings?.whatsapp_number ?? '' },
+  })
+
+  async function onSubmit(values: ClinicFormValues) {
+    try {
+      await saveSettings.mutateAsync({ name: values.name, whatsapp_number: values.whatsapp_number || null })
+      toast({ title: 'تم تحديث بيانات العيادة', variant: 'success' })
+    } catch (err) {
+      toast({ title: 'حدث خطأ', description: (err as Error).message, variant: 'destructive' })
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Building2 className="size-4" />
+          بيانات العيادة
+        </CardTitle>
+        <CardDescription>الاسم ده بيظهر في الشريط الجانبي وفي رسايل تذكير المرضى بواتساب</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+          <div>
+            <Label htmlFor="clinic_name">اسم العيادة</Label>
+            <Input id="clinic_name" {...register('name', { required: 'اسم العيادة مطلوب' })} />
+            {errors.name && <p className="mt-1 text-xs text-destructive">{errors.name.message}</p>}
+          </div>
+          <div>
+            <Label htmlFor="clinic_whatsapp">رقم واتساب العيادة (اختياري)</Label>
+            <Input id="clinic_whatsapp" ltr placeholder="01xxxxxxxxx" {...register('whatsapp_number')} />
+            <p className="mt-1 text-xs text-muted-foreground">
+              بيتسجل كرقم مرجعي في رسايل التذكير — إرسال الرسالة نفسه بيتم من واتساب اللي شغال على جهاز الموظف
+            </p>
+          </div>
+          <Button type="submit" disabled={isSubmitting || !isDirty} className="w-fit">
+            {isSubmitting ? 'جارٍ الحفظ...' : 'حفظ التعديلات'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function ProfilePage() {
@@ -56,11 +116,22 @@ export default function ProfilePage() {
   }
 
   async function onSavePassword(values: PasswordFormValues) {
+    if (!profile) return
     if (values.password !== values.confirm) {
       toast({ title: 'كلمتا المرور غير متطابقتين', variant: 'destructive' })
       return
     }
     try {
+      // Confirms identity before allowing the change — without this, anyone left signed in on
+      // an unattended device could change the password without knowing the current one.
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password: values.current_password,
+      })
+      if (verifyError) {
+        toast({ title: 'كلمة المرور الحالية غير صحيحة', variant: 'destructive' })
+        return
+      }
       const { error } = await supabase.auth.updateUser({ password: values.password })
       if (error) throw error
       resetPassword()
@@ -131,6 +202,17 @@ export default function ProfilePage() {
         <CardContent>
           <form onSubmit={handlePasswordSubmit(onSavePassword)} noValidate className="flex flex-col gap-4">
             <div>
+              <Label htmlFor="current_password">كلمة المرور الحالية</Label>
+              <PasswordInput
+                id="current_password"
+                autoComplete="current-password"
+                {...registerPassword('current_password', { required: 'كلمة المرور الحالية مطلوبة' })}
+              />
+              {passwordErrors.current_password && (
+                <p className="mt-1 text-xs text-destructive">{passwordErrors.current_password.message}</p>
+              )}
+            </div>
+            <div>
               <Label htmlFor="password">كلمة المرور الجديدة</Label>
               <PasswordInput
                 id="password"
@@ -161,6 +243,8 @@ export default function ProfilePage() {
           </form>
         </CardContent>
       </Card>
+
+      {profile.role === 'admin' && <ClinicSettingsCard />}
     </div>
   )
 }

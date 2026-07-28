@@ -23,3 +23,16 @@ export function formatTime(time: string) {
   d.setHours(Number(h), Number(m))
   return new Intl.DateTimeFormat('ar-EG', { hour: 'numeric', minute: '2-digit' }).format(d)
 }
+
+/** wa.me needs the full international number with no leading zero — Egyptian numbers are stored locally (e.g. "01012345678"). */
+function toWhatsAppNumber(phone: string) {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.startsWith('0')) return `20${digits.slice(1)}`
+  if (digits.startsWith('20')) return digits
+  return digits
+}
+
+/** Opens a wa.me chat pre-filled with `message` for the given local phone number. */
+export function whatsAppLink(phone: string, message: string) {
+  return `https://wa.me/${toWhatsAppNumber(phone)}?text=${encodeURIComponent(message)}`
+}

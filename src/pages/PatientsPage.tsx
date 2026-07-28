@@ -1,11 +1,11 @@
 import * as React from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Plus, Phone } from 'lucide-react'
+import { Search, Plus, Phone, ChevronRight, ChevronLeft } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmpty } from '@/components/ui/table'
-import { usePatients } from '@/features/patients/api'
+import { usePatients, PATIENTS_PAGE_SIZE } from '@/features/patients/api'
 import { PatientForm } from '@/features/patients/PatientForm'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { formatDate } from '@/lib/utils'
@@ -13,9 +13,18 @@ import { formatDate } from '@/lib/utils'
 export default function PatientsPage() {
   const [search, setSearch] = React.useState('')
   const debouncedSearch = useDebouncedValue(search)
+  const [page, setPage] = React.useState(0)
   const [formOpen, setFormOpen] = React.useState(false)
-  const { data: patients, isLoading } = usePatients(debouncedSearch)
+  const { data, isLoading } = usePatients(debouncedSearch, page)
   const navigate = useNavigate()
+
+  const patients = data?.patients ?? []
+  const totalCount = data?.totalCount ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalCount / PATIENTS_PAGE_SIZE))
+
+  React.useEffect(() => {
+    setPage(0)
+  }, [debouncedSearch])
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +57,7 @@ export default function PatientsPage() {
           <TableBody>
             {isLoading ? (
               <TableEmpty colSpan={4}>جارٍ التحميل...</TableEmpty>
-            ) : patients && patients.length > 0 ? (
+            ) : patients.length > 0 ? (
               patients.map((patient) => (
                 <TableRow
                   key={patient.id}
@@ -74,6 +83,29 @@ export default function PatientsPage() {
           </TableBody>
         </Table>
       </Card>
+
+      {!isLoading && totalCount > 0 && (
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <p>
+            إجمالي {totalCount} مريض · صفحة {page + 1} من {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              <ChevronRight className="size-4" />
+              السابق
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={page + 1 >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+            >
+              التالي
+              <ChevronLeft className="size-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <PatientForm open={formOpen} onOpenChange={setFormOpen} />
     </div>

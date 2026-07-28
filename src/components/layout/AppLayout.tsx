@@ -4,6 +4,7 @@ import { Sidebar } from './Sidebar'
 import { MobileSidebar } from './MobileSidebar'
 import { Topbar } from './Topbar'
 import { BranchProvider } from '@/features/branches/BranchContext'
+import { OnboardingSetup } from '@/features/clinic-settings/OnboardingSetup'
 
 export function AppLayout() {
   const [mobileNavOpen, setMobileNavOpen] = React.useState(false)
@@ -13,6 +14,7 @@ export function AppLayout() {
 
   return (
     <BranchProvider>
+      <OnboardingSetup />
       <div className="flex h-svh overflow-hidden bg-background">
         <Sidebar />
         <MobileSidebar open={mobileNavOpen} onOpenChange={setMobileNavOpen} />

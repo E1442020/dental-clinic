@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { useBranches } from './api'
+import { useBranches, useUserBranchIds } from './api'
 import type { Branch } from '@/types/database'
 
 const STORAGE_KEY = 'clinic:current-branch-id'
@@ -9,8 +9,10 @@ interface BranchContextValue {
   currentBranchId: string | undefined
   setCurrentBranchId: (id: string) => void
   currentBranch: Branch | undefined
+  /** The branches this user can actually operate in — every branch for admin/accountant,
+   * otherwise just the ones they're assigned to via user_branches. */
   branches: Branch[]
-  /** true when the user's role is pinned to one branch (e.g. receptionist) and can't switch */
+  /** true when the user can only work in one branch (or none) and so can't switch */
   isLocked: boolean
   isLoading: boolean
 }
@@ -19,18 +21,29 @@ const BranchContext = React.createContext<BranchContextValue | undefined>(undefi
 
 export function BranchProvider({ children }: { children: React.ReactNode }) {
   const { profile } = useAuth()
-  const { data: branches = [], isLoading } = useBranches()
+  const { data: allBranches = [], isLoading: loadingBranches } = useBranches()
+  const isUnrestricted = profile?.role === 'admin' || profile?.role === 'accountant'
+  const { data: assignedBranchIds, isLoading: loadingAssigned } = useUserBranchIds(
+    isUnrestricted ? undefined : profile?.id,
+  )
   const [selectedId, setSelectedId] = React.useState<string | undefined>(
     () => localStorage.getItem(STORAGE_KEY) ?? undefined,
   )
 
-  const isLocked = !!profile?.branch_id
+  const branches = React.useMemo(() => {
+    if (isUnrestricted) return allBranches
+    const assigned = new Set(assignedBranchIds ?? [])
+    return allBranches.filter((b) => assigned.has(b.id))
+  }, [isUnrestricted, allBranches, assignedBranchIds])
+
+  const isLoading = loadingBranches || (!isUnrestricted && loadingAssigned)
+  const isLocked = !isUnrestricted && branches.length <= 1
 
   const currentBranchId = React.useMemo(() => {
-    if (isLocked) return profile!.branch_id!
+    if (isLocked) return branches[0]?.id
     if (selectedId && branches.some((b) => b.id === selectedId)) return selectedId
     return branches[0]?.id
-  }, [isLocked, profile, selectedId, branches])
+  }, [isLocked, selectedId, branches])
 
   function setCurrentBranchId(id: string) {
     setSelectedId(id)

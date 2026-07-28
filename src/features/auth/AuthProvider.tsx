@@ -1,6 +1,7 @@
 import * as React from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import { toast } from '@/hooks/use-toast'
 import type { AppUser } from '@/types/database'
 
 interface AuthContextValue {
@@ -21,6 +22,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = React.useCallback(async (userId: string) => {
     const { data } = await supabase.from('users').select('*').eq('id', userId).single()
+    if (data && !data.is_active) {
+      await supabase.auth.signOut()
+      setProfile(null)
+      toast({ title: 'حسابك متوقف حاليًا', description: 'تواصلي مع مسؤول العيادة', variant: 'destructive' })
+      return
+    }
     setProfile(data ?? null)
   }, [])
 

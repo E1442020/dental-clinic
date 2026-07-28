@@ -2,18 +2,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import type { Patient } from '@/types/database'
 
-export function usePatients(search: string) {
+export const PATIENTS_PAGE_SIZE = 20
+
+export function usePatients(search: string, page: number) {
   return useQuery({
-    queryKey: ['patients', search],
+    queryKey: ['patients', search, page],
     queryFn: async () => {
-      let query = supabase.from('patients').select('*').order('created_at', { ascending: false })
+      let query = supabase
+        .from('patients')
+        .select('*', { count: 'exact' })
+        .order('created_at', { ascending: false })
       if (search.trim()) {
         const term = search.trim()
         query = query.or(`full_name.ilike.%${term}%,phone.ilike.%${term}%,national_id.ilike.%${term}%`)
       }
-      const { data, error } = await query.limit(100)
+      const from = page * PATIENTS_PAGE_SIZE
+      const { data, error, count } = await query.range(from, from + PATIENTS_PAGE_SIZE - 1)
       if (error) throw error
-      return data as Patient[]
+      return { patients: data as Patient[], totalCount: count ?? 0 }
     },
   })
 }

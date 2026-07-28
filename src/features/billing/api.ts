@@ -5,6 +5,7 @@ import type { Invoice, InvoiceStatus, PaymentMethod } from '@/types/database'
 export interface InvoiceWithPayments extends Invoice {
   payments: { id: string; amount_paid: number; payment_method: PaymentMethod; payment_date: string }[]
   treatments: { procedure_type: string; tooth_number: number | null } | null
+  branches: { name: string } | null
 }
 
 export interface InvoiceWithPatient extends InvoiceWithPayments {
@@ -18,7 +19,7 @@ export function useAllInvoices(status?: InvoiceStatus, from?: string, to?: strin
       let query = supabase
         .from('invoices')
         .select(
-          '*, payments(id, amount_paid, payment_method, payment_date), patients(full_name, phone), treatments(procedure_type, tooth_number)',
+          '*, payments(id, amount_paid, payment_method, payment_date), patients(full_name, phone), treatments(procedure_type, tooth_number), branches(name)',
         )
         .order('issue_date', { ascending: false })
         .limit(500)
@@ -40,12 +41,69 @@ export function useInvoicesByPatient(patientId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('invoices')
-        .select('*, payments(id, amount_paid, payment_method, payment_date), treatments(procedure_type, tooth_number)')
+        .select(
+          '*, payments(id, amount_paid, payment_method, payment_date), treatments(procedure_type, tooth_number), branches(name)',
+        )
         .eq('patient_id', patientId as string)
         .order('issue_date', { ascending: false })
       if (error) throw error
       return data as unknown as InvoiceWithPayments[]
     },
+  })
+}
+
+export interface InvoiceForTreatment {
+  id: string
+  total_amount: number
+  insurance_covered_amount: number
+  status: InvoiceStatus
+}
+
+/** The invoice auto-created for a treatment (if the treatment had a cost > 0 when created). */
+export function useInvoiceByTreatment(treatmentId: string | undefined) {
+  return useQuery({
+    queryKey: ['invoices', 'by-treatment', treatmentId],
+    enabled: !!treatmentId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('id, total_amount, insurance_covered_amount, status')
+        .eq('treatment_id', treatmentId as string)
+        .maybeSingle()
+      if (error) throw error
+      return data as InvoiceForTreatment | null
+    },
+  })
+}
+
+/** Keeps an invoice's amount in sync when its treatment's cost is edited — only safe to call
+ * while the invoice is still 'unpaid' (see the costLocked check in TreatmentFormFields), since
+ * once a payment or insurance amount has been recorded against it, recomputing the total here
+ * would clobber that without touching the payments that were made against the old amount. */
+export function useUpdateInvoiceCost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({
+      invoiceId,
+      newTotalAmount,
+      insuranceCoveredAmount,
+    }: {
+      invoiceId: string
+      newTotalAmount: number
+      insuranceCoveredAmount: number
+    }) => {
+      const newPatientDue = newTotalAmount - insuranceCoveredAmount
+      const { error } = await supabase
+        .from('invoices')
+        .update({
+          total_amount: newTotalAmount,
+          patient_due_amount: newPatientDue,
+          status: nextInvoiceStatus(0, newPatientDue),
+        })
+        .eq('id', invoiceId)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['invoices'] }),
   })
 }
 
