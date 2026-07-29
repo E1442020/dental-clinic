@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { nextInvoiceStatus } from '@/features/billing/api'
+import { toISODate } from '@/lib/utils'
 import type { ClaimStatus, InsuranceClaim } from '@/types/database'
 
 export interface ClaimWithDetails extends InsuranceClaim {
@@ -89,7 +90,7 @@ export function useResolveClaim() {
         .update({
           status,
           approved_amount: status === 'approved' ? approvedAmount : null,
-          resolved_date: new Date().toISOString().slice(0, 10),
+          resolved_date: toISODate(new Date()),
           notes: notes || null,
         })
         .eq('id', claim.id)

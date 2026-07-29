@@ -45,7 +45,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile, error: profileError } = await callerClient
       .from('users')
-      .select('role')
+      .select('role, clinic_id')
       .eq('id', userData.user.id)
       .single()
     if (profileError || callerProfile?.role !== 'admin') {
@@ -73,8 +73,12 @@ Deno.serve(async (req) => {
 
     // branch_id stays the user's default/primary branch (first picked); user_branches is the
     // full set that branch-scoped RLS actually checks — see auth_has_branch() in migration 0011.
+    // clinic_id is set explicitly to the caller's own clinic — this insert goes through the
+    // service-role client, which has no auth.uid(), so the column's `default auth_clinic_id()`
+    // wouldn't apply here (and could otherwise let a rogue caller create a user in any clinic).
     const { error: insertError } = await adminClient.from('users').insert({
       id: created.user.id,
+      clinic_id: callerProfile.clinic_id,
       full_name,
       email,
       role,
@@ -90,7 +94,13 @@ Deno.serve(async (req) => {
     if (branchIds.length > 0) {
       const { error: branchesError } = await adminClient
         .from('user_branches')
-        .insert(branchIds.map((branch_id: string) => ({ user_id: created.user.id, branch_id })))
+        .insert(
+          branchIds.map((branch_id: string) => ({
+            user_id: created.user.id,
+            branch_id,
+            clinic_id: callerProfile.clinic_id,
+          })),
+        )
       if (branchesError) {
         await adminClient.auth.admin.deleteUser(created.user.id)
         return json({ error: branchesError.message }, 400)

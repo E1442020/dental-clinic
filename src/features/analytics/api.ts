@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { toISODate } from '@/lib/utils'
 
 export type RangeKey = '7d' | '30d' | '90d' | 'year'
 
@@ -17,7 +18,7 @@ function rangeToDates(range: RangeKey) {
   else if (range === '30d') from.setDate(to.getDate() - 29)
   else if (range === '90d') from.setDate(to.getDate() - 89)
   else from.setMonth(0, 1)
-  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) }
+  return { from: toISODate(from), to: toISODate(to) }
 }
 
 /** Daily buckets for short ranges, weekly for 90d, monthly for the full year. */

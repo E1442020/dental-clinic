@@ -5,9 +5,11 @@ import type { UserRole } from '@/types/database'
 export function ProtectedRoute({
   children,
   allow,
+  requireSuperAdmin,
 }: {
   children: React.ReactNode
   allow?: UserRole[]
+  requireSuperAdmin?: boolean
 }) {
   const { session, profile, loading } = useAuth()
   const location = useLocation()
@@ -25,6 +27,10 @@ export function ProtectedRoute({
   }
 
   if (allow && profile && !allow.includes(profile.role)) {
+    return <Navigate to="/" replace />
+  }
+
+  if (requireSuperAdmin && !profile?.is_super_admin) {
     return <Navigate to="/" replace />
   }
 

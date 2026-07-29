@@ -1,13 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 import type { Branch } from '@/types/database'
 
+/** Keyed (and explicitly filtered) by the caller's own clinic_id — not just relying on RLS to
+ * narrow an unfiltered query — so switching accounts can never briefly show a cached result
+ * fetched for a different clinic (see the matching note on useClinicSettings). */
 export function useBranches(options?: { includeInactive?: boolean }) {
+  const { profile } = useAuth()
   const includeInactive = options?.includeInactive ?? false
   return useQuery({
-    queryKey: ['branches', includeInactive ? 'all' : 'active'],
+    queryKey: ['branches', profile?.clinic_id, includeInactive ? 'all' : 'active'],
+    enabled: !!profile?.clinic_id,
     queryFn: async () => {
-      let query = supabase.from('branches').select('*').order('name')
+      let query = supabase.from('branches').select('*').eq('clinic_id', profile!.clinic_id).order('name')
       if (!includeInactive) query = query.eq('is_active', true)
       const { data, error } = await query
       if (error) throw error

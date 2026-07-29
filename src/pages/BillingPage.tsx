@@ -18,7 +18,7 @@ import { useAllInvoices } from '@/features/billing/api'
 import { BillingSummary } from '@/features/billing/BillingSummary'
 import { useBranchContext } from '@/features/branches/BranchContext'
 import { invoiceStatusLabels } from '@/lib/roles'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { formatCurrency, formatDate, toISODate } from '@/lib/utils'
 import type { InvoiceStatus } from '@/types/database'
 
 const statusVariant = { unpaid: 'destructive', partial: 'warning', paid: 'success' } as const
@@ -33,14 +33,14 @@ const billingRangeOptions: { key: BillingRangeKey; label: string }[] = [
 ]
 
 function billingRangeToDates(range: BillingRangeKey) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toISODate(new Date())
   if (range === 'today') return { from: today, to: today }
   if (range === 'all') return { from: undefined, to: undefined }
 
   const from = new Date()
   if (range === 'week') from.setDate(from.getDate() - from.getDay())
   else from.setDate(1)
-  return { from: from.toISOString().slice(0, 10), to: today }
+  return { from: toISODate(from), to: today }
 }
 
 function InvoicesTable({

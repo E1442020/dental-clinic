@@ -43,7 +43,7 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile, error: profileError } = await callerClient
       .from('users')
-      .select('role')
+      .select('role, clinic_id')
       .eq('id', userData.user.id)
       .single()
     if (profileError || callerProfile?.role !== 'admin') {
@@ -61,6 +61,18 @@ Deno.serve(async (req) => {
 
     // Only place the service role key is used — entirely server-side, never sent to the browser.
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
+
+    // The service-role client bypasses RLS entirely, so this same-clinic check must be done
+    // explicitly here — otherwise an admin could reset a password for a user in any clinic.
+    const { data: targetProfile, error: targetError } = await adminClient
+      .from('users')
+      .select('clinic_id')
+      .eq('id', user_id)
+      .single()
+    if (targetError || targetProfile.clinic_id !== callerProfile.clinic_id) {
+      return json({ error: 'غير مصرح لك بإعادة تعيين كلمة المرور لهذا المستخدم' }, 403)
+    }
+
     const { error: updateError } = await adminClient.auth.admin.updateUserById(user_id, { password: new_password })
     if (updateError) {
       return json({ error: updateError.message }, 400)

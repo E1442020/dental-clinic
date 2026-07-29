@@ -80,10 +80,16 @@ export default function PatientProfilePage() {
               )}
             </div>
           </div>
-          <Button variant="outline" size="sm" className="w-full shrink-0 sm:w-auto" onClick={() => setEditOpen(true)}>
-            <Pencil className="size-4" />
-            تعديل البيانات
-          </Button>
+          <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+            <Button size="sm" className="flex-1 sm:flex-initial" onClick={() => setApptFormOpen(true)}>
+              <Plus className="size-4" />
+              حجز موعد
+            </Button>
+            <Button variant="outline" size="sm" className="flex-1 sm:flex-initial" onClick={() => setEditOpen(true)}>
+              <Pencil className="size-4" />
+              تعديل البيانات
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -116,18 +122,7 @@ export default function PatientProfilePage() {
         </TabsContent>
 
         <TabsContent value="appointments">
-          <div className="mb-3 flex justify-end">
-            <Button size="sm" onClick={() => setApptFormOpen(true)}>
-              <Plus className="size-4" />
-              حجز موعد
-            </Button>
-          </div>
           <AppointmentsList patientId={patient.id} />
-          <AppointmentForm
-            open={apptFormOpen}
-            onOpenChange={setApptFormOpen}
-            presetPatient={patient}
-          />
         </TabsContent>
 
         {isClinical && (
@@ -160,6 +155,7 @@ export default function PatientProfilePage() {
       </Tabs>
 
       <PatientForm open={editOpen} onOpenChange={setEditOpen} patient={patient} />
+      <AppointmentForm open={apptFormOpen} onOpenChange={setApptFormOpen} presetPatient={patient} />
     </div>
   )
 }

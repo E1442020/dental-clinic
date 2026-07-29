@@ -4,7 +4,7 @@ import { Users, CalendarCheck, Receipt } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent } from '@/components/ui/card'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, toISODate } from '@/lib/utils'
 
 const AnalyticsSection = React.lazy(() => import('@/features/analytics/AnalyticsSection'))
 
@@ -12,7 +12,7 @@ function useDashboardStats() {
   return useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: async () => {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = toISODate(new Date())
 
       const [patients, todayAppointments, unpaidInvoices] = await Promise.all([
         supabase.from('patients').select('id', { count: 'exact', head: true }),

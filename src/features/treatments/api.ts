@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/features/auth/AuthProvider'
 import type { Treatment } from '@/types/database'
 
 export interface TreatmentWithDoctor extends Treatment {
@@ -71,9 +72,12 @@ export const commonProcedures = ['كشف', 'حشو', 'خلع', 'تنظيف', 'ع
 
 const TREATMENT_PHOTOS_BUCKET = 'treatment-photos'
 
-/** Uploads a before/after photo to private storage and saves its path on the treatment row. */
+/** Uploads a before/after photo to private storage and saves its path on the treatment row.
+ * The path is prefixed with the clinic id — the storage RLS policy checks that first segment
+ * against auth_clinic_id(), so photos stay isolated between clinics in the shared bucket. */
 export function useUploadTreatmentPhoto() {
   const queryClient = useQueryClient()
+  const { profile } = useAuth()
   return useMutation({
     mutationFn: async ({
       treatmentId,
@@ -87,7 +91,7 @@ export function useUploadTreatmentPhoto() {
       file: File
     }) => {
       const ext = file.name.split('.').pop() ?? 'jpg'
-      const path = `${patientId}/${treatmentId}-${kind}-${Date.now()}.${ext}`
+      const path = `${profile?.clinic_id}/${patientId}/${treatmentId}-${kind}-${Date.now()}.${ext}`
       const { error: uploadError } = await supabase.storage.from(TREATMENT_PHOTOS_BUCKET).upload(path, file)
       if (uploadError) throw uploadError
 

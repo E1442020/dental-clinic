@@ -21,6 +21,7 @@ import { usePatients, useCreatePatient } from '@/features/patients/api'
 import { useBranchContext } from '@/features/branches/BranchContext'
 import { useDebouncedValue } from '@/hooks/use-debounced-value'
 import { toast } from '@/hooks/use-toast'
+import { toISODate } from '@/lib/utils'
 import type { Patient } from '@/types/database'
 
 const schema = z
@@ -72,7 +73,7 @@ export function AppointmentForm({
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { appointment_date: defaultDate ?? new Date().toISOString().slice(0, 10) },
+    defaultValues: { appointment_date: defaultDate ?? toISODate(new Date()) },
   })
 
   const selectedDoctor = doctors?.find((d) => d.id === watch('doctor_id'))
@@ -84,7 +85,7 @@ export function AppointmentForm({
       setPatientSearch('')
       reset({
         doctor_id: '',
-        appointment_date: defaultDate ?? new Date().toISOString().slice(0, 10),
+        appointment_date: defaultDate ?? toISODate(new Date()),
         start_time: '',
         end_time: '',
         reason: '',

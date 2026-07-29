@@ -21,6 +21,7 @@ import { useDoctorsForBranch } from '@/features/appointments/api'
 import { useBranchContext } from '@/features/branches/BranchContext'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { toast } from '@/hooks/use-toast'
+import { toISODate } from '@/lib/utils'
 import { toothOptions } from '@/features/dental-chart/toothLabels'
 
 const schema = z.object({
@@ -176,7 +177,7 @@ export function TreatmentFormFields({
       : {
           doctor_id: profile?.role === 'doctor' ? (profile.linked_doctor_id ?? '') : '',
           tooth_number: defaultTooth ? String(defaultTooth) : 'all',
-          procedure_date: new Date().toISOString().slice(0, 10),
+          procedure_date: toISODate(new Date()),
           cost: '',
         },
   })

@@ -7,6 +7,7 @@ import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { Toaster } from '@/components/ui/toaster'
 import LoginPage from '@/pages/LoginPage'
+import SignupPage from '@/pages/SignupPage'
 
 const DashboardPage = lazy(() => import('@/pages/DashboardPage'))
 const PatientsPage = lazy(() => import('@/pages/PatientsPage'))
@@ -18,6 +19,7 @@ const InsurancePage = lazy(() => import('@/pages/InsurancePage'))
 const BillingPage = lazy(() => import('@/pages/BillingPage'))
 const ProfilePage = lazy(() => import('@/pages/ProfilePage'))
 const StaffPage = lazy(() => import('@/pages/StaffPage'))
+const SuperAdminPage = lazy(() => import('@/pages/SuperAdminPage'))
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage'))
 
 const queryClient = new QueryClient({
@@ -35,6 +37,7 @@ function PageFallback() {
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
+  { path: '/signup', element: <SignupPage /> },
   {
     path: '/',
     element: (
@@ -92,6 +95,15 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
         handle: { title: 'الموظفون' },
+      },
+      {
+        path: 'super-admin',
+        element: (
+          <ProtectedRoute requireSuperAdmin>
+            <SuperAdminPage />
+          </ProtectedRoute>
+        ),
+        handle: { title: 'إدارة العيادات' },
       },
     ],
   },

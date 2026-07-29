@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom'
-import { Stethoscope } from 'lucide-react'
+import { Stethoscope, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useClinicSettings } from '@/features/clinic-settings/api'
 import { navItems } from './navItems'
+import { UserAccountMenu } from './UserAccountMenu'
 
 export function Sidebar() {
   const { profile } = useAuth()
@@ -38,7 +39,23 @@ export function Sidebar() {
             {item.label}
           </NavLink>
         ))}
+        {profile?.is_super_admin && (
+          <NavLink
+            to="/super-admin"
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors',
+                'hover:bg-accent hover:text-accent-foreground',
+                isActive && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+              )
+            }
+          >
+            <ShieldAlert className="size-4" />
+            إدارة العيادات
+          </NavLink>
+        )}
       </nav>
+      <UserAccountMenu />
     </aside>
   )
 }

@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
+import { invokeEdgeFunction } from '@/lib/edge-functions'
 import type { AppUser, UserRole } from '@/types/database'
 
 export interface StaffMember extends AppUser {
@@ -59,12 +60,7 @@ export type CreateStaffInput = {
 export function useCreateStaffUser() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async (input: CreateStaffInput) => {
-      const { data, error } = await supabase.functions.invoke('create-staff-user', { body: input })
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-      return data as { id: string }
-    },
+    mutationFn: (input: CreateStaffInput) => invokeEdgeFunction<{ id: string }>('create-staff-user', input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['staff'] }),
   })
 }
@@ -104,14 +100,8 @@ export function useSetUserBranches() {
  * doesn't need the service role key. */
 export function useResetStaffPassword() {
   return useMutation({
-    mutationFn: async ({ userId, newPassword }: { userId: string; newPassword: string }) => {
-      const { data, error } = await supabase.functions.invoke('reset-staff-password', {
-        body: { user_id: userId, new_password: newPassword },
-      })
-      if (error) throw error
-      if (data?.error) throw new Error(data.error)
-      return data as { success: true }
-    },
+    mutationFn: ({ userId, newPassword }: { userId: string; newPassword: string }) =>
+      invokeEdgeFunction<{ success: true }>('reset-staff-password', { user_id: userId, new_password: newPassword }),
   })
 }
 

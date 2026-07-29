@@ -11,7 +11,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell, TableEmp
 import { useAllClaims, useResolveClaim, useRecordClaimCollection, type ClaimWithDetails } from './claims-api'
 import { useInsurances } from './api'
 import { claimStatusLabels } from '@/lib/roles'
-import { formatCurrency, formatDate, cn } from '@/lib/utils'
+import { formatCurrency, formatDate, cn, toISODate } from '@/lib/utils'
 import { toast } from '@/hooks/use-toast'
 import type { ClaimStatus } from '@/types/database'
 
@@ -101,7 +101,7 @@ function CollectionDialog({ claim, onOpenChange }: { claim: ClaimWithDetails; on
   const recordCollection = useRecordClaimCollection()
   const remaining = Number(claim.approved_amount ?? 0) - collectedOf(claim)
   const [amount, setAmount] = React.useState(String(remaining > 0 ? remaining : 0))
-  const [receivedDate, setReceivedDate] = React.useState(new Date().toISOString().slice(0, 10))
+  const [receivedDate, setReceivedDate] = React.useState(toISODate(new Date()))
   const [notes, setNotes] = React.useState('')
 
   async function handleSave() {

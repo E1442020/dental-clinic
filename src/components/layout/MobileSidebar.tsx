@@ -1,10 +1,11 @@
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import { NavLink } from 'react-router-dom'
-import { X, Stethoscope } from 'lucide-react'
+import { X, Stethoscope, ShieldAlert } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { useClinicSettings } from '@/features/clinic-settings/api'
 import { navItems } from './navItems'
+import { UserAccountMenu } from './UserAccountMenu'
 
 export function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const { profile } = useAuth()
@@ -54,7 +55,24 @@ export function MobileSidebar({ open, onOpenChange }: { open: boolean; onOpenCha
                 {item.label}
               </NavLink>
             ))}
+            {profile?.is_super_admin && (
+              <NavLink
+                to="/super-admin"
+                onClick={() => onOpenChange(false)}
+                className={({ isActive }) =>
+                  cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground',
+                    'hover:bg-accent hover:text-accent-foreground',
+                    isActive && 'bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground',
+                  )
+                }
+              >
+                <ShieldAlert className="size-4" />
+                إدارة العيادات
+              </NavLink>
+            )}
           </nav>
+          <UserAccountMenu onNavigate={() => onOpenChange(false)} />
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

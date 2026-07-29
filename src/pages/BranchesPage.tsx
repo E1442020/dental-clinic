@@ -107,6 +107,7 @@ export default function BranchesPage() {
   const [formOpen, setFormOpen] = React.useState(false)
   const [editingBranch, setEditingBranch] = React.useState<Branch | undefined>()
   const [confirmTarget, setConfirmTarget] = React.useState<Branch | undefined>()
+  const activeBranchCount = branches?.filter((b) => b.is_active).length ?? 0
 
   function openCreate() {
     setEditingBranch(undefined)
@@ -152,6 +153,7 @@ export default function BranchesPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {branches?.map((b) => {
             const isCurrent = b.id === currentBranchId
+            const isLastActiveBranch = b.is_active && activeBranchCount <= 1
             return (
               <Card key={b.id} className={cn(isCurrent && 'ring-2 ring-primary')}>
                 <CardContent className="flex flex-col gap-2 pt-5">
@@ -176,7 +178,12 @@ export default function BranchesPage() {
                             <Pencil className="size-4" />
                             تعديل البيانات
                           </DropdownMenuItem>
-                          <DropdownMenuItem destructive={b.is_active} onClick={() => setConfirmTarget(b)}>
+                          <DropdownMenuItem
+                            destructive={b.is_active}
+                            disabled={isLastActiveBranch}
+                            title={isLastActiveBranch ? 'لازم يفضل فرع نشط واحد على الأقل' : undefined}
+                            onClick={() => setConfirmTarget(b)}
+                          >
                             {b.is_active ? <PowerOff className="size-4" /> : <Power className="size-4" />}
                             {b.is_active ? 'إيقاف التفعيل' : 'إعادة التفعيل'}
                           </DropdownMenuItem>
@@ -201,6 +208,9 @@ export default function BranchesPage() {
                       <Building2 className="size-3.5" />
                       تعيين كفرع العمل
                     </Button>
+                  )}
+                  {isLastActiveBranch && (
+                    <p className="text-xs text-muted-foreground">لازم يفضل فرع نشط واحد على الأقل</p>
                   )}
                 </CardContent>
               </Card>

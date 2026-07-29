@@ -1,42 +1,63 @@
-import { useForm } from 'react-hook-form'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { useClinicSettings, useSaveClinicSettings } from './api'
-import { useBranches, useCreateBranch } from '@/features/branches/api'
-import { useAuth } from '@/features/auth/AuthProvider'
-import { toast } from '@/hooks/use-toast'
+import * as React from "react";
+import { useForm } from "react-hook-form";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useClinicSettings, useSaveClinicSettings } from "./api";
+import { useBranches, useCreateBranch } from "@/features/branches/api";
+import { useAuth } from "@/features/auth/AuthProvider";
+import { toast } from "@/hooks/use-toast";
 
 interface FormValues {
-  clinic_name: string
-  whatsapp_number: string
-  branch_name: string
-  branch_address: string
-  branch_phone: string
+  clinic_name: string;
+  whatsapp_number: string;
+  branch_name: string;
+  branch_address: string;
+  branch_phone: string;
 }
 
 /** Blocks the app for the admin until the clinic's brand name (and first branch, if none exist
  * yet) are set — nothing to close/skip, since the sidebar and WhatsApp reminders depend on it. */
 export function OnboardingSetup() {
-  const { profile } = useAuth()
-  const { data: clinicSettings, isLoading: loadingSettings } = useClinicSettings()
-  const { data: branches, isLoading: loadingBranches } = useBranches({ includeInactive: true })
-  const saveSettings = useSaveClinicSettings()
-  const createBranch = useCreateBranch()
+  const { profile } = useAuth();
+  // `isPending` (not `isLoading`) — see the note on useClinic() in features/clinics/api.ts for
+  // why `isLoading` has a real gap right when these queries flip from disabled to enabled.
+  const { data: clinicSettings, isPending: loadingSettings } =
+    useClinicSettings();
+  const { data: branches, isPending: loadingBranches } = useBranches({
+    includeInactive: true,
+  });
+  const saveSettings = useSaveClinicSettings();
+  const createBranch = useCreateBranch();
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>()
+  } = useForm<FormValues>();
 
-  const isAdmin = profile?.role === 'admin'
-  const stillLoading = loadingSettings || (isAdmin && loadingBranches)
-  const needsSetup = isAdmin && !stillLoading && !clinicSettings
-  const needsBranch = !loadingBranches && (branches?.length ?? 0) === 0
+  // A one-way latch: once this submits successfully, never show the dialog again for the rest of
+  // this session — regardless of what any later refetch (window refocus, cache invalidation, ...)
+  // does to clinicSettings/branches. Without this, a brief window right after saving where those
+  // queries are mid-refetch could otherwise flash the dialog back open for an instant before
+  // settling on its final (correct) closed state.
+  const [justCompleted, setJustCompleted] = React.useState(false);
 
-  if (!needsSetup) return null
+  const isAdmin = profile?.role === "admin";
+  const stillLoading = loadingSettings || (isAdmin && loadingBranches);
+  const needsSetup =
+    isAdmin && !stillLoading && !clinicSettings && !justCompleted;
+  const needsBranch = !loadingBranches && (branches?.length ?? 0) === 0;
+
+  if (!needsSetup) return null;
 
   async function onSubmit(values: FormValues) {
     try {
@@ -45,15 +66,20 @@ export function OnboardingSetup() {
           name: values.branch_name,
           address: values.branch_address || undefined,
           phone: values.branch_phone || undefined,
-        })
+        });
       }
       await saveSettings.mutateAsync({
         name: values.clinic_name,
         whatsapp_number: values.whatsapp_number || null,
-      })
-      toast({ title: 'تم إعداد بيانات العيادة بنجاح', variant: 'success' })
+      });
+      setJustCompleted(true);
+      toast({ title: "تم إعداد بيانات العيادة بنجاح", variant: "success" });
     } catch (err) {
-      toast({ title: 'حدث خطأ', description: (err as Error).message, variant: 'destructive' })
+      toast({
+        title: "حدث خطأ",
+        description: (err as Error).message,
+        variant: "destructive",
+      });
     }
   }
 
@@ -71,48 +97,74 @@ export function OnboardingSetup() {
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit(onSubmit)} noValidate className="flex flex-col gap-4">
+        <form
+          onSubmit={handleSubmit(onSubmit)}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <div>
             <Label htmlFor="clinic_name">اسم العيادة *</Label>
-            <Input id="clinic_name" {...register('clinic_name', { required: 'اسم العيادة مطلوب' })} />
-            {errors.clinic_name && <p className="mt-1 text-xs text-destructive">{errors.clinic_name.message}</p>}
+            <Input
+              id="clinic_name"
+              {...register("clinic_name", { required: "اسم العيادة مطلوب" })}
+            />
+            {errors.clinic_name && (
+              <p className="mt-1 text-xs text-destructive">
+                {errors.clinic_name.message}
+              </p>
+            )}
           </div>
           <div>
-            <Label htmlFor="whatsapp_number">رقم واتساب العيادة (اختياري)</Label>
-            <Input id="whatsapp_number" ltr placeholder="01xxxxxxxxx" {...register('whatsapp_number')} />
+            <Label htmlFor="whatsapp_number">
+              رقم واتساب العيادة (اختياري)
+            </Label>
+            <Input
+              id="whatsapp_number"
+              ltr
+              placeholder="01xxxxxxxxx"
+              {...register("whatsapp_number")}
+            />
             <p className="mt-1 text-xs text-muted-foreground">
-              هيتسجل كرقم مرجعي في رسايل التذكير — إرسال الرسالة نفسه بيتم من واتساب اللي شغال على جهاز الموظف وقت الإرسال
+              هيتسجل كرقم مرجعي في رسايل التذكير — إرسال الرسالة نفسه بيتم من
+              واتساب اللي شغال على جهاز الموظف وقت الإرسال
             </p>
           </div>
 
-          {needsBranch && (
-            <>
-              <div className="border-t border-border pt-3">
-                <p className="text-sm font-semibold">بيانات أول فرع</p>
-              </div>
-              <div>
-                <Label htmlFor="branch_name">اسم الفرع *</Label>
-                <Input id="branch_name" {...register('branch_name', { required: 'اسم الفرع مطلوب' })} />
-                {errors.branch_name && <p className="mt-1 text-xs text-destructive">{errors.branch_name.message}</p>}
-              </div>
-              <div>
-                <Label htmlFor="branch_address">العنوان</Label>
-                <Input id="branch_address" {...register('branch_address')} />
-              </div>
-              <div>
-                <Label htmlFor="branch_phone">هاتف الفرع</Label>
-                <Input id="branch_phone" ltr {...register('branch_phone')} />
-              </div>
-            </>
-          )}
+          {/* {needsBranch && ( */}
+          <>
+            <div className="border-t border-border pt-3">
+              <p className="text-sm font-semibold">بيانات أول فرع</p>
+            </div>
+            <div>
+              <Label htmlFor="branch_name">اسم الفرع *</Label>
+              <Input
+                id="branch_name"
+                {...register("branch_name", { required: "اسم الفرع مطلوب" })}
+              />
+              {errors.branch_name && (
+                <p className="mt-1 text-xs text-destructive">
+                  {errors.branch_name.message}
+                </p>
+              )}
+            </div>
+            <div>
+              <Label htmlFor="branch_address">العنوان</Label>
+              <Input id="branch_address" {...register("branch_address")} />
+            </div>
+            <div>
+              <Label htmlFor="branch_phone">هاتف الفرع</Label>
+              <Input id="branch_phone" ltr {...register("branch_phone")} />
+            </div>
+          </>
+          {/* )} */}
 
           <DialogFooter>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'جارٍ الحفظ...' : 'حفظ والمتابعة'}
+              {isSubmitting ? "جارٍ الحفظ..." : "حفظ والمتابعة"}
             </Button>
           </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

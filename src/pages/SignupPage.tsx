@@ -1,6 +1,7 @@
 import * as React from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { useSignupClinic } from "@/features/clinics/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -13,32 +14,42 @@ import {
   CardDescription,
 } from "@/components/ui/card";
 
-export default function LoginPage() {
+export default function SignupPage() {
   const { session, signIn } = useAuth();
-  const location = useLocation();
+  const navigate = useNavigate();
+  const signup = useSignupClinic();
+  const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
-  if (session) {
-    const from = (location.state as { from?: string })?.from ?? "/";
-    return <Navigate to={from} replace />;
-  }
+  if (session) return <Navigate to="/" replace />;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
 
-    if (!email.trim() || !password.trim()) {
-      setError("من فضلك أدخل البريد الإلكتروني وكلمة المرور");
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      setError("من فضلك أدخل كل البيانات");
+      return;
+    }
+    if (password.length < 6) {
+      setError("كلمة المرور يجب أن تكون 6 أحرف على الأقل");
       return;
     }
 
     setSubmitting(true);
-    const { error } = await signIn(email, password);
-    setSubmitting(false);
-    if (error) setError("البريد الإلكتروني أو كلمة المرور غير صحيحة");
+    try {
+      await signup.mutateAsync({ full_name: fullName, email, password });
+      const { error: signInError } = await signIn(email, password);
+      if (signInError) throw new Error(signInError);
+      navigate("/");
+    } catch (err) {
+      setError((err as Error).message || "حدث خطأ، حاولي مرة أخرى");
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -50,15 +61,15 @@ export default function LoginPage() {
           </div>
           <h1 className="text-xl font-bold">نظام إدارة العيادة</h1>
           <p className="text-sm text-muted-foreground">
-            سجّل الدخول لمتابعة عملك
+            ابدئي تجربة مجانية لمدة 7 أيام
           </p>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>تسجيل الدخول</CardTitle>
+            <CardTitle>تجربة مجانية</CardTitle>
             <CardDescription>
-              استخدم البيانات التي أنشأها لك مسؤول العيادة
+              هتقدر تضيف اسم عيادتك وأول فرع في الخطوة التالية
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -67,6 +78,15 @@ export default function LoginPage() {
               noValidate
               className="flex flex-col gap-4"
             >
+              <div>
+                <Label htmlFor="full_name">الاسم بالكامل</Label>
+                <Input
+                  id="full_name"
+                  autoComplete="name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                />
+              </div>
               <div>
                 <Label htmlFor="email">البريد الإلكتروني</Label>
                 <Input
@@ -83,7 +103,7 @@ export default function LoginPage() {
                 <Label htmlFor="password">كلمة المرور</Label>
                 <PasswordInput
                   id="password"
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                 />
@@ -95,15 +115,15 @@ export default function LoginPage() {
                 disabled={submitting}
                 className="mt-2"
               >
-                {submitting ? "جارٍ الدخول..." : "دخول"}
+                {submitting ? "جارٍ الإنشاء..." : "ابدأ التجربة المجانية"}
               </Button>
               <p className="text-center text-sm text-muted-foreground">
-                عيادة جديدة؟{" "}
+                عندك حساب بالفعل؟{" "}
                 <Link
-                  to="/signup"
+                  to="/login"
                   className="font-semibold text-primary hover:underline"
                 >
-                  ابدأ تجربة مجانية 7 أيام
+                  تسجيل الدخول
                 </Link>
               </p>
             </form>

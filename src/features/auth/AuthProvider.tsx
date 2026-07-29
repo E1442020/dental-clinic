@@ -1,5 +1,6 @@
 import * as React from 'react'
 import type { Session } from '@supabase/supabase-js'
+import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '@/lib/supabase'
 import { toast } from '@/hooks/use-toast'
 import type { AppUser } from '@/types/database'
@@ -16,9 +17,15 @@ interface AuthContextValue {
 const AuthContext = React.createContext<AuthContextValue | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient()
   const [session, setSession] = React.useState<Session | null>(null)
   const [profile, setProfile] = React.useState<AppUser | null>(null)
   const [loading, setLoading] = React.useState(true)
+  // Tracks whose data is currently cached — every query in the app (clinic settings, branches,
+  // patients, etc.) is keyed without a user/clinic id, so switching accounts within React Query's
+  // staleTime window would otherwise silently show the PREVIOUS account's cached results (e.g.
+  // OnboardingSetup seeing the old clinic's already-saved settings and skipping setup entirely).
+  const cachedUserIdRef = React.useRef<string | null>(null)
 
   const loadProfile = React.useCallback(async (userId: string) => {
     const { data } = await supabase.from('users').select('*').eq('id', userId).single()
@@ -29,10 +36,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return
     }
     setProfile(data ?? null)
+    // Fire-and-forget — feeds the super-admin dashboard's "آخر ظهور" column.
+    if (data) supabase.from('users').update({ last_seen_at: new Date().toISOString() }).eq('id', userId).then()
   }, [])
 
   React.useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
+      cachedUserIdRef.current = data.session?.user.id ?? null
       setSession(data.session)
       if (data.session) {
         loadProfile(data.session.user.id).finally(() => setLoading(false))
@@ -42,6 +52,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      const newUserId = newSession?.user.id ?? null
+      if (newUserId !== cachedUserIdRef.current) {
+        queryClient.clear()
+        cachedUserIdRef.current = newUserId
+      }
       setSession(newSession)
       if (newSession) {
         loadProfile(newSession.user.id)
@@ -51,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
 
     return () => subscription.subscription.unsubscribe()
-  }, [loadProfile])
+  }, [loadProfile, queryClient])
 
   const signIn = React.useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password })

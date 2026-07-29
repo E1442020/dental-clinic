@@ -2,15 +2,12 @@ import * as React from 'react'
 import { ChevronRight, ChevronLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { weekdays, weekdayCodeForDate } from '@/lib/weekdays'
-import { cn } from '@/lib/utils'
+import { cn, toISODate } from '@/lib/utils'
+import { useToday } from '@/hooks/use-today'
 
 /** How many days are generated on each side of the anchor — wide enough that
  * a couple of arrow clicks in a row never has to jump/regenerate mid-scroll. */
 const STRIP_HALF = 10
-
-function toISODate(d: Date) {
-  return d.toISOString().slice(0, 10)
-}
 
 function addDays(iso: string, delta: number) {
   const d = new Date(iso)
@@ -24,7 +21,7 @@ function addDays(iso: string, delta: number) {
  * glides there with the browser's native smooth scroll instead of snapping.
  */
 export function DateStrip({ date, onChange }: { date: string; onChange: (date: string) => void }) {
-  const todayIso = React.useMemo(() => toISODate(new Date()), [])
+  const todayIso = useToday()
   const [anchor, setAnchor] = React.useState(date)
   const itemRefs = React.useRef<Record<string, HTMLButtonElement | null>>({})
 

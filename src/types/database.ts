@@ -14,9 +14,23 @@ export type PaymentMethod = 'cash' | 'card' | 'installment' | 'insurance' | 'tra
 export type Gender = 'male' | 'female'
 
 type Tables = {
+  clinics: {
+    Row: {
+      id: string
+      name: string
+      is_active: boolean
+      trial_ends_at: string | null
+      subscription_ends_at: string | null
+      notes: string | null
+      created_at: string
+    }
+    Insert: Partial<Tables['clinics']['Row']> & { name: string }
+    Update: Partial<Tables['clinics']['Row']>
+  }
   branches: {
     Row: {
       id: string
+      clinic_id: string
       name: string
       address: string | null
       phone: string | null
@@ -29,12 +43,15 @@ type Tables = {
   users: {
     Row: {
       id: string
+      clinic_id: string
       full_name: string
       email: string
       role: UserRole
       branch_id: string | null
       linked_doctor_id: string | null
       is_active: boolean
+      is_super_admin: boolean
+      last_seen_at: string | null
       created_at: string
     }
     Insert: Partial<Tables['users']['Row']> & {
@@ -47,6 +64,7 @@ type Tables = {
   insurances: {
     Row: {
       id: string
+      clinic_id: string
       company_name: string
       contact_phone: string | null
       contract_details: string | null
@@ -61,6 +79,7 @@ type Tables = {
   doctors: {
     Row: {
       id: string
+      clinic_id: string
       full_name: string
       specialty: string | null
       phone: string | null
@@ -73,6 +92,7 @@ type Tables = {
   }
   doctor_branches: {
     Row: {
+      clinic_id: string
       doctor_id: string
       branch_id: string
       working_days: string[]
@@ -84,6 +104,7 @@ type Tables = {
   }
   user_branches: {
     Row: {
+      clinic_id: string
       user_id: string
       branch_id: string
     }
@@ -93,6 +114,7 @@ type Tables = {
   patients: {
     Row: {
       id: string
+      clinic_id: string
       full_name: string
       phone: string
       email: string | null
@@ -118,6 +140,7 @@ type Tables = {
   appointments: {
     Row: {
       id: string
+      clinic_id: string
       patient_id: string
       doctor_id: string
       branch_id: string
@@ -144,6 +167,7 @@ type Tables = {
   treatments: {
     Row: {
       id: string
+      clinic_id: string
       patient_id: string
       doctor_id: string
       appointment_id: string | null
@@ -168,6 +192,7 @@ type Tables = {
   dental_chart: {
     Row: {
       id: string
+      clinic_id: string
       patient_id: string
       tooth_number: number
       current_status: ToothStatus
@@ -182,6 +207,7 @@ type Tables = {
   insurance_claims: {
     Row: {
       id: string
+      clinic_id: string
       patient_id: string
       insurance_id: string
       invoice_id: string
@@ -203,6 +229,7 @@ type Tables = {
   insurance_claim_collections: {
     Row: {
       id: string
+      clinic_id: string
       claim_id: string
       amount: number
       received_date: string
@@ -218,6 +245,7 @@ type Tables = {
   invoices: {
     Row: {
       id: string
+      clinic_id: string
       patient_id: string
       treatment_id: string | null
       branch_id: string
@@ -238,6 +266,7 @@ type Tables = {
   payments: {
     Row: {
       id: string
+      clinic_id: string
       invoice_id: string
       amount_paid: number
       payment_method: PaymentMethod
@@ -254,7 +283,7 @@ type Tables = {
   }
   clinic_settings: {
     Row: {
-      id: true
+      clinic_id: string
       name: string
       whatsapp_number: string | null
       updated_at: string
@@ -288,3 +317,4 @@ export type Payment = Tables['payments']['Row']
 export type AppUser = Tables['users']['Row']
 export type DoctorBranch = Tables['doctor_branches']['Row']
 export type ClinicSettings = Tables['clinic_settings']['Row']
+export type Clinic = Tables['clinics']['Row']
